@@ -131,7 +131,7 @@ function App () {
   })
   const [selectedAbi, setSelectedAbi] = useState(() => {
     const selected = localStorage.getItem('selectedAbi')
-    return selected || Object.keys(abis)[0]
+    return selected || 'ERC20'
   })
   const [abi, setAbi] = useState(() => {
     const selected = localStorage.getItem('selectedAbi') || Object.keys(abis)[0]
@@ -148,8 +148,7 @@ function App () {
     return localStorage.getItem('customAbi') || '[]'
   })
   const [selectedAbiMethod, setSelectedAbiMethod] = useState(() => {
-    const defaultValue = ''
-    return localStorage.getItem('selectedAbiMethod') || defaultValue
+    return localStorage.getItem('selectedAbiMethod') || 'transfer'
   })
   useEffect(() => {
     if (!privateKey) return
