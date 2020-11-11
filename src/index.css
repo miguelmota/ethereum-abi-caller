@@ -35,6 +35,11 @@ textarea {
   width: 100%;
 }
 
+input[type='text']:read-only,
+textarea:read-only {
+  background: #f4f4f4;
+}
+
 textarea {
   height: 200px;
 }

@@ -121,8 +121,16 @@ function App () {
   const [networkName, setNetworkName] = useState(() => {
     return localStorage.getItem('networkName') || 'mainnet'
   })
+  const [rpcProviderUrl, setRpcProviderUrl] = useState<string>(() => {
+    return localStorage.getItem('rpcProviderUrl') || ''
+  })
   const [rpcProvider, setRpcProvider] = useState<any>(() => {
     const net = localStorage.getItem('networkName') || 'mainnet'
+    const url = localStorage.getItem('rpcProviderUrl')
+    if (url) {
+      return new ethers.providers.JsonRpcProvider(url.replace('{network}', net))
+    }
+
     return ethers.providers.getDefaultProvider(net)
   })
   const [wallet, setWallet] = useState<any>(rpcProvider)
@@ -171,11 +179,30 @@ function App () {
   const handleNetworkChange = (value: string) => {
     setNetworkName(value)
     localStorage.setItem('networkName', value)
-    setRpcProvider(ethers.providers.getDefaultProvider(value))
+    if (rpcProviderUrl) {
+      let url = rpcProviderUrl.replace('{network}', value)
+      const provider = new ethers.providers.JsonRpcProvider(url)
+      setRpcProvider(provider)
+    } else {
+      setRpcProvider(ethers.providers.getDefaultProvider(value))
+    }
   }
   const handlePrivateKeyChange = (value: string) => {
     setPrivateKey(value)
     localStorage.setItem('privateKey', value)
+  }
+  const handleRpcProviderUrlChange = (value: string) => {
+    try {
+      setRpcProviderUrl(value)
+      localStorage.setItem('rpcProviderUrl', value)
+      value = value.replace('{network}', networkName)
+      const provider = new ethers.providers.JsonRpcProvider(
+        value.replace('{network}', networkName)
+      )
+      setRpcProvider(provider)
+    } catch (err) {
+      // noop
+    }
   }
   const handleContractAddressChange = (value: string) => {
     setContractAddress(value)
@@ -183,6 +210,7 @@ function App () {
   }
   const handleSelectChange = (value: string) => {
     setSelectedAbi(value)
+    localStorage.setItem('selectedAbi', value)
   }
   const handleAbiContent = (value: string) => {
     setCustomAbi(value)
@@ -239,6 +267,13 @@ function App () {
       <section>
         <label>Private key</label>
         <TextInput value={privateKey} onChange={handlePrivateKeyChange} />
+      </section>
+      <section>
+        <label>RPC provider url</label>
+        <TextInput
+          value={rpcProviderUrl}
+          onChange={handleRpcProviderUrlChange}
+        />
       </section>
       <section>
         <label>Contract address</label>
