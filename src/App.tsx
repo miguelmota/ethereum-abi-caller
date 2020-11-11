@@ -4,6 +4,11 @@ import abis from './abi'
 
 const networkOptions = ['mainnet', 'kovan', 'goerli', 'rinkeby', 'ropsten']
 
+function getTxExplorerUrl (txHash: string, network: string) {
+  const subdomain = network === 'mainnet' ? '' : `${network}.`
+  return `https://${subdomain}etherscan.io/tx/${txHash}`
+}
+
 function Select (props: any = {}) {
   const handleChange = (event: any) => {
     const value = event.target.value
@@ -61,10 +66,17 @@ function TextInput (props: any = {}) {
 
 function AbiForm (props: any = {}) {
   const [args, setArgs] = useState<any[]>([])
-  const [gasLimit, setGasLimit] = useState<any>()
-  const [gasPrice, setGasPrice] = useState<any>()
-  const [value, setValue] = useState<any>()
+  const [gasLimit, setGasLimit] = useState<string>(() => {
+    return localStorage.getItem('gasLimit') || ''
+  })
+  const [gasPrice, setGasPrice] = useState<string>(() => {
+    return localStorage.getItem('gasPrice') || ''
+  })
+  const [value, setValue] = useState<string>(() => {
+    return localStorage.getItem('value') || ''
+  })
   const [result, setResult] = useState('')
+  const [txhash, setTxhash] = useState<any>(null)
   const obj = props.abi
   if (obj.type !== 'function') {
     return null
@@ -78,11 +90,14 @@ function AbiForm (props: any = {}) {
         props.wallet
       )
       const txOpts = {
-        gasPrice: ethers.utils.parseUnits(gasPrice, 'gwei').toString(),
-        gasLimit,
-        value
+        gasPrice: gasPrice
+          ? ethers.utils.parseUnits(gasPrice, 'gwei').toString()
+          : undefined,
+        gasLimit: gasLimit ? gasLimit : undefined,
+        value: value ? value : undefined
       }
       const res = await contract.functions[obj.name](...args, txOpts)
+      setTxhash(res?.hash)
       setResult(JSON.stringify(res, null, 2))
       if (props.onSubmit) {
         props.onSubmit(res)
@@ -91,10 +106,22 @@ function AbiForm (props: any = {}) {
       alert(err.message)
     }
   }
-
+  const updateGasLimit = (val: string) => {
+    setGasLimit(val)
+    localStorage.setItem('gasLimit', val)
+  }
+  const updateGasPrice = (val: string) => {
+    setGasPrice(val)
+    localStorage.setItem('gasPrice', val)
+  }
+  const updateValue = (val: string) => {
+    setValue(val)
+    localStorage.setItem('value', val)
+  }
   const buttonText = ['view', 'pure'].includes(obj.stateMutability)
     ? 'Call'
     : 'Submit'
+  const txLink = txhash ? getTxExplorerUrl(txhash, props.network) : null
 
   return (
     <div>
@@ -125,20 +152,29 @@ function AbiForm (props: any = {}) {
           <TextInput
             value={gasLimit}
             placeholder={'gas limit'}
-            onChange={setGasLimit}
+            onChange={updateGasLimit}
           />
           <label>gas price (gwei)</label>
           <TextInput
             value={gasPrice}
             placeholder={'gas price'}
-            onChange={setGasPrice}
+            onChange={updateGasPrice}
           />
           <label>value (wei)</label>
-          <TextInput value={value} placeholder={'value'} onChange={setValue} />
+          <TextInput
+            value={value}
+            placeholder={'value'}
+            onChange={updateValue}
+          />
         </div>
         <button type='submit'>{buttonText}</button>
       </form>
       <pre>{result}</pre>
+      {txLink && (
+        <a href={txLink} target='_blank' rel='noopener noreferrer'>
+          {txLink}
+        </a>
+      )}
     </div>
   )
 }
@@ -278,6 +314,7 @@ function App () {
           contractAddress={contractAddress}
           wallet={wallet}
           abi={obj}
+          network={networkName}
         />
       )
     } catch (err) {
