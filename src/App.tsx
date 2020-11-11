@@ -61,6 +61,9 @@ function TextInput (props: any = {}) {
 
 function AbiForm (props: any = {}) {
   const [args, setArgs] = useState<any[]>([])
+  const [gasLimit, setGasLimit] = useState<any>()
+  const [gasPrice, setGasPrice] = useState<any>()
+  const [value, setValue] = useState<any>()
   const [result, setResult] = useState('')
   const obj = props.abi
   if (obj.type !== 'function') {
@@ -74,7 +77,12 @@ function AbiForm (props: any = {}) {
         [obj],
         props.wallet
       )
-      const res = await contract.functions[obj.name](...args)
+      const txOpts = {
+        gasPrice: ethers.utils.parseUnits(gasPrice, 'gwei').toString(),
+        gasLimit,
+        value
+      }
+      const res = await contract.functions[obj.name](...args, txOpts)
       setResult(JSON.stringify(res, null, 2))
       if (props.onSubmit) {
         props.onSubmit(res)
@@ -83,6 +91,10 @@ function AbiForm (props: any = {}) {
       alert(err.message)
     }
   }
+
+  const buttonText = ['view', 'pure'].includes(obj.stateMutability)
+    ? 'Call'
+    : 'Submit'
 
   return (
     <div>
@@ -107,7 +119,24 @@ function AbiForm (props: any = {}) {
             </div>
           )
         })}
-        <button type='submit'>submit</button>
+        <div style={{ padding: '1rem' }}>
+          <label style={{ marginBottom: '0.5rem' }}>Transaction options</label>
+          <label>gas limit</label>
+          <TextInput
+            value={gasLimit}
+            placeholder={'gas limit'}
+            onChange={setGasLimit}
+          />
+          <label>gas price (gwei)</label>
+          <TextInput
+            value={gasPrice}
+            placeholder={'gas price'}
+            onChange={setGasPrice}
+          />
+          <label>value (wei)</label>
+          <TextInput value={value} placeholder={'value'} onChange={setValue} />
+        </div>
+        <button type='submit'>{buttonText}</button>
       </form>
       <pre>{result}</pre>
     </div>
