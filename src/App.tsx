@@ -65,7 +65,7 @@ function TextInput (props: any = {}) {
 }
 
 function AbiForm (props: any = {}) {
-  const [args, setArgs] = useState<any[]>([])
+  const [args, setArgs] = useState<any>({})
   const [gasLimit, setGasLimit] = useState<string>(() => {
     return localStorage.getItem('gasLimit') || ''
   })
@@ -76,9 +76,34 @@ function AbiForm (props: any = {}) {
     return localStorage.getItem('value') || ''
   })
   const [result, setResult] = useState('')
+  const [callStatic, setCallStatic] = useState<boolean>(false)
   const [txhash, setTxhash] = useState<any>(null)
-  const obj = props.abi
-  if (obj.type !== 'function') {
+  const [tx, setTx] = useState<any>(null)
+  const abiObj = props.abi
+
+  useEffect(() => {
+    let tx: any = {
+      gasPrice: gasPrice
+        ? ethers.utils.parseUnits(gasPrice, 'gwei').toString()
+        : undefined,
+      gasLimit: gasLimit ? gasLimit : undefined,
+      value: value ? value : undefined
+    }
+
+    try {
+      if (abiObj) {
+        const iface = new ethers.utils.Interface([abiObj])
+        const data = iface.encodeFunctionData(abiObj.name, Object.values(args))
+        tx.data = data
+      }
+    } catch (err) {
+      // noop
+    }
+
+    setTx(tx)
+  }, [abiObj, gasPrice, gasLimit, value, args])
+
+  if (abiObj.type !== 'function') {
     return null
   }
   const handleSubmit = async (event: any) => {
@@ -86,17 +111,19 @@ function AbiForm (props: any = {}) {
     try {
       const contract = new ethers.Contract(
         props.contractAddress,
-        [obj],
+        [abiObj],
         props.wallet
       )
+
       const txOpts = {
-        gasPrice: gasPrice
-          ? ethers.utils.parseUnits(gasPrice, 'gwei').toString()
-          : undefined,
-        gasLimit: gasLimit ? gasLimit : undefined,
-        value: value ? value : undefined
+        gasPrice: tx.gasPrice,
+        gasLimit: tx.gasLimit,
+        value: tx.value
       }
-      const res = await contract.functions[obj.name](...args, txOpts)
+
+      const res = await contract[callStatic ? 'callStatic' : 'functions'][
+        abiObj.name
+      ](...Object.values(args), txOpts)
       setTxhash(res?.hash)
       setResult(JSON.stringify(res, null, 2))
       if (props.onSubmit) {
@@ -118,18 +145,19 @@ function AbiForm (props: any = {}) {
     setValue(val)
     localStorage.setItem('value', val)
   }
-  const buttonText = ['view', 'pure'].includes(obj.stateMutability)
-    ? 'Call'
-    : 'Submit'
+  const updateCallStatic = (event: any) => {
+    setCallStatic(event.target.checked)
+  }
+
   const txLink = txhash ? getTxExplorerUrl(txhash, props.network) : null
 
   return (
     <div>
       <form onSubmit={handleSubmit}>
         <label style={{ marginBottom: '0.5rem' }}>
-          <strong>{obj.name}</strong>
+          <strong>{abiObj.name}</strong>
         </label>
-        {obj.inputs.map((input: any, i: number) => {
+        {abiObj.inputs.map((input: any, i: number) => {
           return (
             <div key={i}>
               <label>
@@ -139,8 +167,9 @@ function AbiForm (props: any = {}) {
                 value={args[i]}
                 placeholder={input.type}
                 onChange={(val: string) => {
-                  args[i] = val
-                  setArgs(args)
+                  const newArgs = Object.assign({}, args)
+                  newArgs[i] = val
+                  setArgs(newArgs)
                 }}
               />
             </div>
@@ -167,7 +196,22 @@ function AbiForm (props: any = {}) {
             onChange={updateValue}
           />
         </div>
-        <button type='submit'>{buttonText}</button>
+        {tx && (
+          <div>
+            <pre>{JSON.stringify(tx, null, 2)}</pre>
+          </div>
+        )}
+        <div>
+          <input
+            type='checkbox'
+            checked={callStatic}
+            onChange={updateCallStatic}
+          />
+          call static
+        </div>
+        <div>
+          <button type='submit'>Submit</button>
+        </div>
       </form>
       <pre>{result}</pre>
       {txLink && (

@@ -47,3 +47,9 @@ textarea:read-only {
 textarea {
   height: 200px;
 }
+
+pre {
+  width: 100%;
+  white-space: break-spaces;
+  word-break: break-all;
+}
