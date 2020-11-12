@@ -46,6 +46,7 @@ function TextInput (props: any = {}) {
     el = (
       <textarea
         readOnly={props.readOnly}
+        disabled={props.disabled}
         value={value}
         onChange={handleChange}
       />
@@ -54,6 +55,7 @@ function TextInput (props: any = {}) {
     el = (
       <input
         readOnly={props.readOnly}
+        disabled={props.disabled}
         placeholder={props.placeholder}
         type='text'
         value={value}
@@ -224,6 +226,9 @@ function AbiForm (props: any = {}) {
 }
 
 function App () {
+  const [useWeb3, setUseWeb3] = useState<boolean>(() => {
+    return localStorage.getItem('useWeb3') === 'true'
+  })
   const [privateKey, setPrivateKey] = useState(() => {
     return localStorage.getItem('privateKey') || ''
   })
@@ -268,15 +273,28 @@ function App () {
     return localStorage.getItem('selectedAbiMethod') || 'transfer'
   })
   useEffect(() => {
-    if (!privateKey) return
     try {
-      const priv = privateKey.replace(/^(0x)?/, '0x')
-      const wal = new ethers.Wallet(priv, rpcProvider)
-      setWallet(wal)
+      if (useWeb3) {
+        if (window.ethereum) {
+          const provider = new ethers.providers.Web3Provider(window.ethereum)
+          const signer = provider.getSigner()
+          setWallet(signer)
+        } else {
+          alert('window.web3 not found')
+        }
+      } else {
+        if (privateKey) {
+          const priv = privateKey.replace(/^(0x)?/, '0x')
+          const wal = new ethers.Wallet(priv, rpcProvider)
+          setWallet(wal)
+        } else {
+          setWallet(null)
+        }
+      }
     } catch (err) {
       console.error(err)
     }
-  }, [privateKey, rpcProvider])
+  }, [useWeb3, privateKey, rpcProvider])
   useEffect(() => {
     const selected = (abis as any)[selectedAbi]
     if (selected) {
@@ -285,6 +303,11 @@ function App () {
       setAbi(customAbi)
     }
   }, [selectedAbi, customAbi])
+  const updateUseWeb3 = (event: any) => {
+    const checked = event.target.checked
+    localStorage.getItem('useWeb3', checked)
+    setUseWeb3(checked)
+  }
   const handleNetworkChange = (value: string) => {
     setNetworkName(value)
     localStorage.setItem('networkName', value)
@@ -297,6 +320,7 @@ function App () {
     }
   }
   const handlePrivateKeyChange = (value: string) => {
+    value = value.trim()
     setPrivateKey(value)
     localStorage.setItem('privateKey', value)
   }
@@ -314,6 +338,7 @@ function App () {
     }
   }
   const handleContractAddressChange = (value: string) => {
+    value = value.trim()
     setContractAddress(value)
     localStorage.setItem('contractAddress', value)
   }
@@ -374,9 +399,17 @@ function App () {
           options={networkOptions}
         />
       </section>
+      <div>
+        <input type='checkbox' checked={useWeb3} onChange={updateUseWeb3} />
+        use web3
+      </div>
       <section>
         <label>Private key</label>
-        <TextInput value={privateKey} onChange={handlePrivateKeyChange} />
+        <TextInput
+          disabled={useWeb3}
+          value={privateKey}
+          onChange={handlePrivateKeyChange}
+        />
       </section>
       <section>
         <label>RPC provider url</label>
