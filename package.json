@@ -10,6 +10,7 @@
     "@types/node": "^12.19.3",
     "@types/react": "^16.9.56",
     "@types/react-dom": "^16.9.9",
+    "ether-converter": "0.0.13",
     "ethers": "^5.0.19",
     "prettier-standard": "^16.4.1",
     "react": "^17.0.1",

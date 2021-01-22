@@ -1,12 +1,69 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, SyntheticEvent } from 'react'
 import * as ethers from 'ethers'
+// @ts-ignore
+import etherConverter from 'ether-converter'
 import abis from './abi'
 
-const networkOptions = ['mainnet', 'kovan', 'goerli', 'rinkeby', 'ropsten']
+const networkOptions = [
+  'mainnet',
+  'kovan',
+  'goerli',
+  'rinkeby',
+  'ropsten',
+  'injected'
+]
 
 function getTxExplorerUrl (txHash: string, network: string) {
   const subdomain = network === 'mainnet' ? '' : `${network}.`
   return `https://${subdomain}etherscan.io/tx/${txHash}`
+}
+
+function Converter () {
+  const [values, setValues] = useState<any>({})
+  const units = [
+    'wei',
+    'kwei',
+    'mwei',
+    'gwei',
+    'szabo',
+    'finney',
+    'ether',
+    'kether',
+    'mether',
+    'gether',
+    'tether'
+  ]
+
+  return (
+    <div>
+      <label>Converter</label>
+      {units.map(unit => {
+        let val = values[unit] ?? ''
+        return (
+          <div>
+            <label>{unit}</label>
+            <input
+              type='text'
+              value={val}
+              onChange={(event: any) => {
+                try {
+                  const value = event.target.value
+                  const result = etherConverter(value, unit)
+                  if (result['wei'] === 'NaN') {
+                    setValues({})
+                  } else {
+                    setValues(result)
+                  }
+                } catch (err) {
+                  console.error(err)
+                }
+              }}
+            />
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 function Select (props: any = {}) {
@@ -132,6 +189,7 @@ function AbiForm (props: any = {}) {
         props.onSubmit(res)
       }
     } catch (err) {
+      console.error(err)
       alert(err.message)
     }
   }
@@ -152,6 +210,7 @@ function AbiForm (props: any = {}) {
   }
 
   const txLink = txhash ? getTxExplorerUrl(txhash, props.network) : null
+  const windowWeb3 = (window as any).ethereum
 
   return (
     <div>
@@ -159,11 +218,26 @@ function AbiForm (props: any = {}) {
         <label style={{ marginBottom: '0.5rem' }}>
           <strong>{abiObj.name}</strong>
         </label>
-        {abiObj.inputs.map((input: any, i: number) => {
+        {abiObj?.inputs?.map((input: any, i: number) => {
           return (
             <div key={i}>
               <label>
-                {input.name} ({input.type})
+                {input.name} ({input.type}){' '}
+                {input.type === 'address' && windowWeb3 ? (
+                  <button
+                    onClick={async (event: SyntheticEvent) => {
+                      event.preventDefault()
+                      const provider = new ethers.providers.Web3Provider(
+                        windowWeb3
+                      )
+                      const newArgs = Object.assign({}, args)
+                      newArgs[i] = await provider?.getSigner()?.getAddress()
+                      setArgs(newArgs)
+                    }}
+                  >
+                    from web3
+                  </button>
+                ) : null}
               </label>
               <TextInput
                 value={args[i]}
@@ -245,6 +319,10 @@ function App () {
       return new ethers.providers.JsonRpcProvider(url.replace('{network}', net))
     }
 
+    if (net === 'injected') {
+      return new ethers.providers.Web3Provider((window as any).ethereum)
+    }
+
     return ethers.providers.getDefaultProvider(net)
   })
   const [wallet, setWallet] = useState<any>(rpcProvider)
@@ -273,10 +351,15 @@ function App () {
     return localStorage.getItem('selectedAbiMethod') || 'transfer'
   })
   useEffect(() => {
+    ;(window as any).provider = rpcProvider
+  }, [rpcProvider])
+  useEffect(() => {
     try {
       if (useWeb3) {
-        if (window.ethereum) {
-          const provider = new ethers.providers.Web3Provider(window.ethereum)
+        if ((window as any).ethereum) {
+          const provider = new ethers.providers.Web3Provider(
+            (window as any).ethereum
+          )
           const signer = provider.getSigner()
           setWallet(signer)
         } else {
@@ -305,7 +388,7 @@ function App () {
   }, [selectedAbi, customAbi])
   const updateUseWeb3 = (event: any) => {
     const checked = event.target.checked
-    localStorage.getItem('useWeb3', checked)
+    localStorage.setItem('useWeb3', checked)
     setUseWeb3(checked)
   }
   const handleNetworkChange = (value: string) => {
@@ -314,6 +397,11 @@ function App () {
     if (rpcProviderUrl) {
       let url = rpcProviderUrl.replace('{network}', value)
       const provider = new ethers.providers.JsonRpcProvider(url)
+      setRpcProvider(provider)
+    } else if (value === 'injected') {
+      const provider = new ethers.providers.Web3Provider(
+        (window as any).ethereum
+      )
       setRpcProvider(provider)
     } else {
       setRpcProvider(ethers.providers.getDefaultProvider(value))
@@ -392,6 +480,9 @@ function App () {
   }
   return (
     <main>
+      <header>
+        <h1>Ethereum ABI caller tool</h1>
+      </header>
       <section>
         <Select
           onChange={handleNetworkChange}
@@ -441,6 +532,8 @@ function App () {
         <div>{renderMethodSelect()}</div>
       </section>
       <section>{renderMethodForm()}</section>
+      <Converter />
+      <footer style={{ margin: '1rem 0' }}>© 2020 Miguel Mota</footer>
     </main>
   )
 }
