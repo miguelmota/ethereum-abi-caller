@@ -40,7 +40,7 @@ function Converter () {
       {units.map(unit => {
         let val = values[unit] ?? ''
         return (
-          <div>
+          <div key={unit}>
             <label>{unit}</label>
             <input
               type='text'
@@ -62,6 +62,84 @@ function Converter () {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function CustomTx (props: any = {}) {
+  const { wallet } = props
+  const [callStatic, setCallStatic] = useState<boolean>(false)
+  const [txhash, setTxhash] = useState<any>(null)
+  const [result, setResult] = useState('')
+  const [tx, setTx] = useState<any>(() => {
+    const defaultTx = JSON.stringify(
+      {
+        to: '',
+        value: '',
+        data: '',
+        gasLimit: '',
+        gasPrice: ''
+      },
+      null,
+      2
+    )
+    try {
+      return localStorage.getItem('customTx') || defaultTx
+    } catch (err) {
+      return defaultTx
+    }
+  })
+  const handleChange = (event: any) => {
+    const val = event.target.value
+    localStorage.setItem('customTx', val)
+    setTx(val)
+  }
+  const updateCallStatic = (event: any) => {
+    setCallStatic(event.target.checked)
+  }
+  const send = async () => {
+    try {
+      setTxhash(null)
+      setResult('')
+      const txData = JSON.parse(tx)
+      let res: any
+      if (callStatic) {
+        res = await wallet.call(txData)
+      } else {
+        res = await wallet.sendTransaction(txData)
+      }
+      setTxhash(res?.hash)
+      setResult(JSON.stringify(res, null, 2))
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
+  const txLink = txhash ? getTxExplorerUrl(txhash, props.network) : null
+
+  return (
+    <div>
+      <div>
+        <label>Custom transaction</label>
+      </div>
+      <textarea value={tx} onChange={handleChange} />
+      <div>
+        <input
+          type='checkbox'
+          checked={callStatic}
+          onChange={updateCallStatic}
+        />
+        call static
+      </div>
+      <div>
+        <button onClick={send}>send</button>
+      </div>
+      <pre>{result}</pre>
+      {txLink && (
+        <a href={txLink} target='_blank' rel='noopener noreferrer'>
+          {txLink}
+        </a>
+      )}
     </div>
   )
 }
@@ -124,7 +202,15 @@ function TextInput (props: any = {}) {
 }
 
 function AbiForm (props: any = {}) {
-  const [args, setArgs] = useState<any>({})
+  const cacheKey = JSON.stringify(props.abi)
+  const [args, setArgs] = useState<any>(() => {
+    const defaultArgs: any = {}
+    try {
+      return JSON.parse(localStorage.getItem(cacheKey) as any) || defaultArgs
+    } catch (err) {
+      return defaultArgs
+    }
+  })
   const [gasLimit, setGasLimit] = useState<string>(() => {
     return localStorage.getItem('gasLimit') || ''
   })
@@ -168,6 +254,8 @@ function AbiForm (props: any = {}) {
   const handleSubmit = async (event: any) => {
     event.preventDefault()
     try {
+      setTxhash(null)
+      setResult('')
       const contract = new ethers.Contract(
         props.contractAddress,
         [abiObj],
@@ -228,10 +316,12 @@ function AbiForm (props: any = {}) {
                     onClick={async (event: SyntheticEvent) => {
                       event.preventDefault()
                       const provider = new ethers.providers.Web3Provider(
-                        windowWeb3
+                        windowWeb3,
+                        'any'
                       )
                       const newArgs = Object.assign({}, args)
                       newArgs[i] = await provider?.getSigner()?.getAddress()
+                      localStorage.setItem(cacheKey, JSON.stringify(newArgs))
                       setArgs(newArgs)
                     }}
                   >
@@ -245,6 +335,7 @@ function AbiForm (props: any = {}) {
                 onChange={(val: string) => {
                   const newArgs = Object.assign({}, args)
                   newArgs[i] = val
+                  localStorage.setItem(cacheKey, JSON.stringify(newArgs))
                   setArgs(newArgs)
                 }}
               />
@@ -306,21 +397,24 @@ function App () {
   const [privateKey, setPrivateKey] = useState(() => {
     return localStorage.getItem('privateKey') || ''
   })
-  const [networkName, setNetworkName] = useState(() => {
+  const [networkName, setNetworkName] = useState('')
+  const [networkOption, setNetworkOption] = useState(() => {
     return localStorage.getItem('networkName') || 'mainnet'
   })
   const [rpcProviderUrl, setRpcProviderUrl] = useState<string>(() => {
     return localStorage.getItem('rpcProviderUrl') || ''
   })
   const [rpcProvider, setRpcProvider] = useState<any>(() => {
-    const net = localStorage.getItem('networkName') || 'mainnet'
+    const net = localStorage.getItem('networkOption') || 'mainnet'
     const url = localStorage.getItem('rpcProviderUrl')
     if (url) {
-      return new ethers.providers.JsonRpcProvider(url.replace('{network}', net))
+      return new ethers.providers.StaticJsonRpcProvider(
+        url.replace('{network}', net)
+      )
     }
 
     if (net === 'injected') {
-      return new ethers.providers.Web3Provider((window as any).ethereum)
+      return new ethers.providers.Web3Provider((window as any).ethereum, 'any')
     }
 
     return ethers.providers.getDefaultProvider(net)
@@ -352,13 +446,17 @@ function App () {
   })
   useEffect(() => {
     ;(window as any).provider = rpcProvider
+    rpcProvider.getNetwork().then((network: any) => {
+      setNetworkName(network?.name)
+    })
   }, [rpcProvider])
   useEffect(() => {
     try {
       if (useWeb3) {
         if ((window as any).ethereum) {
           const provider = new ethers.providers.Web3Provider(
-            (window as any).ethereum
+            (window as any).ethereum,
+            'any'
           )
           const signer = provider.getSigner()
           setWallet(signer)
@@ -391,16 +489,17 @@ function App () {
     localStorage.setItem('useWeb3', checked)
     setUseWeb3(checked)
   }
-  const handleNetworkChange = (value: string) => {
-    setNetworkName(value)
-    localStorage.setItem('networkName', value)
+  const handleNetworkOptionChange = (value: string) => {
+    setNetworkOption(value)
+    localStorage.setItem('networkOption', value)
     if (rpcProviderUrl) {
       let url = rpcProviderUrl.replace('{network}', value)
       const provider = new ethers.providers.JsonRpcProvider(url)
       setRpcProvider(provider)
     } else if (value === 'injected') {
       const provider = new ethers.providers.Web3Provider(
-        (window as any).ethereum
+        (window as any).ethereum,
+        'any'
       )
       setRpcProvider(provider)
     } else {
@@ -416,9 +515,9 @@ function App () {
     try {
       setRpcProviderUrl(value)
       localStorage.setItem('rpcProviderUrl', value)
-      value = value.replace('{network}', networkName)
+      value = value.replace('{network}', networkOption)
       const provider = new ethers.providers.JsonRpcProvider(
-        value.replace('{network}', networkName)
+        value.replace('{network}', networkOption)
       )
       setRpcProvider(provider)
     } catch (err) {
@@ -485,8 +584,8 @@ function App () {
       </header>
       <section>
         <Select
-          onChange={handleNetworkChange}
-          selected={networkName}
+          onChange={handleNetworkOptionChange}
+          selected={networkOption}
           options={networkOptions}
         />
       </section>
@@ -532,7 +631,12 @@ function App () {
         <div>{renderMethodSelect()}</div>
       </section>
       <section>{renderMethodForm()}</section>
-      <Converter />
+      <section>
+        <Converter />
+      </section>
+      <section>
+        <CustomTx wallet={wallet} network={networkName} />
+      </section>
       <footer style={{ margin: '1rem 0' }}>© 2020 Miguel Mota</footer>
     </main>
   )
