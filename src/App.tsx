@@ -2,7 +2,7 @@ import React, { useEffect, useState, SyntheticEvent } from 'react'
 import * as ethers from 'ethers'
 // @ts-ignore
 import etherConverter from 'ether-converter'
-import abis from './abi'
+import nativeAbis from './abi'
 
 const networkOptions = [
   'mainnet',
@@ -182,6 +182,7 @@ function TextInput (props: any = {}) {
       <textarea
         readOnly={props.readOnly}
         disabled={props.disabled}
+        placeholder={props.placeholder}
         value={value}
         onChange={handleChange}
       />
@@ -423,23 +424,31 @@ function App () {
   const [contractAddress, setContractAddress] = useState(() => {
     return localStorage.getItem('contractAddress') || ''
   })
+  const [newAbiName, setNewAbiName] = useState('')
+  const [abiFormShown, showAbiForm] = useState(false)
   const [selectedAbi, setSelectedAbi] = useState(() => {
     const selected = localStorage.getItem('selectedAbi')
     return selected || 'ERC20'
   })
-  const [abi, setAbi] = useState(() => {
-    const selected = localStorage.getItem('selectedAbi') || Object.keys(abis)[0]
-    const customAbi = localStorage.getItem('customAbi') || '[]'
-    if (selected === 'custom') {
-      return customAbi
+  const [customAbis, setCustomAbis] = useState<any>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('customAbis') || '') || {}
+    } catch (err) {
+      return {}
     }
-    return (abis as any)[selected]
-  })
-  const [abiOptions] = useState(() => {
-    return ['custom'].concat(...Object.keys(abis))
   })
   const [customAbi, setCustomAbi] = useState(() => {
     return localStorage.getItem('customAbi') || '[]'
+  })
+  const [abis, setAbis] = useState<any>(() => {
+    return { ...nativeAbis, ...customAbis }
+  })
+  const [abi, setAbi] = useState(() => {
+    const selected = localStorage.getItem('selectedAbi') || Object.keys(abis)[0]
+    return (abis as any)[selected]
+  })
+  const [abiOptions, setAbiOptions] = useState(() => {
+    return Object.keys(abis)
   })
   const [selectedAbiMethod, setSelectedAbiMethod] = useState(() => {
     return localStorage.getItem('selectedAbiMethod') || 'transfer'
@@ -480,10 +489,16 @@ function App () {
     const selected = (abis as any)[selectedAbi]
     if (selected) {
       setAbi(JSON.stringify(selected, null, 2))
-    } else {
-      setAbi(customAbi)
     }
-  }, [selectedAbi, customAbi])
+  }, [selectedAbi, abis])
+  useEffect(() => {
+    const _abis = { ...nativeAbis, ...customAbis }
+    setAbis(_abis)
+    setAbiOptions(Object.keys(_abis).sort())
+  }, [customAbis])
+  useEffect(() => {
+    localStorage.setItem('selectedAbi', selectedAbi)
+  }, [selectedAbi])
   const updateUseWeb3 = (event: any) => {
     const checked = event.target.checked
     localStorage.setItem('useWeb3', checked)
@@ -531,12 +546,62 @@ function App () {
   }
   const handleSelectChange = (value: string) => {
     setSelectedAbi(value)
-    localStorage.setItem('selectedAbi', value)
   }
   const handleAbiContent = (value: string) => {
     setCustomAbi(value)
     localStorage.setItem('customAbi', value)
   }
+  const handleAddAbiClick = (event: any) => {
+    event.preventDefault()
+    showAbiForm(true)
+    setCustomAbi('')
+  }
+  const handleDeleteAbiClick = (event: any) => {
+    event.preventDefault()
+    try {
+      const _customAbis = Object.assign({}, customAbis)
+      delete _customAbis[selectedAbi]
+      localStorage.setItem('customAbis', JSON.stringify(_customAbis))
+      setCustomAbis(_customAbis)
+      setSelectedAbi(Object.keys(nativeAbis)[0])
+    } catch (err) {
+      alert(err)
+    }
+  }
+  const handleSaveAbiClick = (event: any) => {
+    event.preventDefault()
+    try {
+      if (!newAbiName) {
+        throw new Error('ABI name is required')
+      }
+      if (!customAbi) {
+        throw new Error('ABI content is required')
+      }
+      const name = newAbiName.trim()
+      const newAbi = {
+        [name]: JSON.parse(customAbi.trim())
+      }
+      const _customAbis = { ...customAbis, ...newAbi }
+      localStorage.setItem('customAbis', JSON.stringify(_customAbis))
+      setCustomAbis(_customAbis)
+      showAbiForm(false)
+      setCustomAbi('')
+      setNewAbiName('')
+      setSelectedAbi(name)
+    } catch (err) {
+      alert(err)
+    }
+  }
+  const handleCancelAbiClick = (event: any) => {
+    event.preventDefault()
+    showAbiForm(false)
+    setCustomAbi('')
+    setNewAbiName('')
+  }
+  const handleNewAbiNameChange = (value: string) => {
+    setNewAbiName(value)
+  }
+
   const renderMethodSelect = () => {
     try {
       const parsed = JSON.parse(abi)
@@ -617,20 +682,46 @@ function App () {
       </section>
       <section>
         <label>ABI</label>
-        <Select
-          onChange={handleSelectChange}
-          selected={selectedAbi}
-          options={abiOptions}
-        />
-        <TextInput
-          readOnly={selectedAbi !== 'custom'}
-          value={abi}
-          onChange={handleAbiContent}
-          variant='textarea'
-        />
-        <div>{renderMethodSelect()}</div>
+        <div>
+          {abiFormShown ? (
+            <div style={{ display: 'flex' }}>
+              <TextInput
+                value={newAbiName}
+                onChange={handleNewAbiNameChange}
+                placeholder={'ABI name'}
+              />
+              <button onClick={handleSaveAbiClick}>Save</button>
+              <button onClick={handleCancelAbiClick}>Cancel</button>
+            </div>
+          ) : (
+            <div>
+              <Select
+                onChange={handleSelectChange}
+                selected={selectedAbi}
+                options={abiOptions}
+              />
+              <button onClick={handleAddAbiClick}>Add</button>
+              {!(nativeAbis as any)[selectedAbi] ? (
+                <button onClick={handleDeleteAbiClick}>Delete</button>
+              ) : null}
+            </div>
+          )}
+        </div>
+        {abiFormShown ? (
+          <TextInput
+            value={customAbi}
+            onChange={handleAbiContent}
+            variant='textarea'
+            placeholder='[]'
+          />
+        ) : (
+          <div>
+            <TextInput readOnly={true} value={abi} variant='textarea' />
+            <div>{renderMethodSelect()}</div>
+          </div>
+        )}
       </section>
-      <section>{renderMethodForm()}</section>
+      {!abiFormShown ? <section>{renderMethodForm()}</section> : null}
       <section>
         <Converter />
       </section>
