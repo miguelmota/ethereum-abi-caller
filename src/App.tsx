@@ -482,8 +482,9 @@ function App () {
     return localStorage.getItem('privateKey') || ''
   })
   const [networkName, setNetworkName] = useState('')
+  const [networkId, setNetworkId] = useState('')
   const [networkOption, setNetworkOption] = useState(() => {
-    return localStorage.getItem('networkName') || 'mainnet'
+    return localStorage.getItem('networkOption') || 'mainnet'
   })
   const [rpcProviderUrl, setRpcProviderUrl] = useState<string>(() => {
     return localStorage.getItem('rpcProviderUrl') || ''
@@ -538,9 +539,13 @@ function App () {
   })
   useEffect(() => {
     ;(window as any).provider = rpcProvider
-    rpcProvider.getNetwork().then((network: any) => {
-      setNetworkName(network?.name)
-    })
+    rpcProvider
+      .getNetwork()
+      .then((network: any) => {
+        setNetworkName(network?.name)
+        setNetworkId(network?.chainId)
+      })
+      .catch(() => {})
   }, [rpcProvider])
   useEffect(() => {
     try {
@@ -736,6 +741,7 @@ function App () {
           selected={networkOption}
           options={networkOptions}
         />
+        <div>chain ID: {networkId}</div>
       </section>
       <div>
         <input type='checkbox' checked={useWeb3} onChange={updateUseWeb3} />
