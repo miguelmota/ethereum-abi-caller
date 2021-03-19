@@ -539,6 +539,8 @@ function App () {
   })
   useEffect(() => {
     ;(window as any).provider = rpcProvider
+    setNetworkName('')
+    setNetworkId('')
     rpcProvider
       .getNetwork()
       .then((network: any) => {
@@ -741,6 +743,7 @@ function App () {
           selected={networkOption}
           options={networkOptions}
         />
+        <div>network: {networkName}</div>
         <div>chain ID: {networkId}</div>
       </section>
       <div>
