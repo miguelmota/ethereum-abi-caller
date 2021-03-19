@@ -396,9 +396,7 @@ function TxReceipt (props: any) {
   const [txHash, setTxHash] = useState(localStorage.getItem('txReceiptHash'))
   const [receipt, setReceipt] = useState(null)
   useEffect(() => {
-    if (txHash) {
-      localStorage.setItem('txReceiptHash', txHash)
-    }
+    localStorage.setItem('txReceiptHash', txHash || '')
   }, [txHash])
   const handleTxHashChange = (value: string) => {
     setTxHash(value)
@@ -430,6 +428,47 @@ function TxReceipt (props: any) {
       </form>
       <div>
         <pre>{result}</pre>
+      </div>
+    </div>
+  )
+}
+
+function GetCode (props: any) {
+  const { provider } = props
+  const [address, setAddress] = useState(localStorage.getItem('getCodeAddress'))
+  const [code, setCode] = useState(null)
+  useEffect(() => {
+    localStorage.setItem('getCodeAddress', address || '')
+  }, [address])
+  const handleAddressChange = (value: string) => {
+    setAddress(value)
+  }
+  const getCode = async () => {
+    setCode(null)
+    const _code = await provider.getCode(address)
+    setCode(_code)
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    getCode()
+  }
+  return (
+    <div>
+      <div>
+        <label>Get code</label>
+      </div>
+      <form onSubmit={handleSubmit}>
+        <TextInput
+          value={address}
+          onChange={handleAddressChange}
+          placeholder='Address'
+        />
+        <div>
+          <button type='submit'>get code</button>
+        </div>
+      </form>
+      <div>
+        <pre>{code}</pre>
       </div>
     </div>
   )
@@ -774,6 +813,9 @@ function App () {
       </section>
       <section>
         <TxReceipt provider={rpcProvider} />
+      </section>
+      <section>
+        <GetCode provider={rpcProvider} />
       </section>
       <footer style={{ margin: '1rem 0' }}>© 2020 Miguel Mota</footer>
     </main>
