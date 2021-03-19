@@ -391,6 +391,50 @@ function AbiForm (props: any = {}) {
   )
 }
 
+function TxReceipt (props: any) {
+  const { provider } = props
+  const [txHash, setTxHash] = useState(localStorage.getItem('txReceiptHash'))
+  const [receipt, setReceipt] = useState(null)
+  useEffect(() => {
+    if (txHash) {
+      localStorage.setItem('txReceiptHash', txHash)
+    }
+  }, [txHash])
+  const handleTxHashChange = (value: string) => {
+    setTxHash(value)
+  }
+  const getReceipt = async () => {
+    setReceipt(null)
+    const _receipt = await provider.getTransactionReceipt(txHash)
+    setReceipt(_receipt)
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    getReceipt()
+  }
+  const result = JSON.stringify(receipt, null, 2)
+  return (
+    <div>
+      <div>
+        <label>Transaction Receipt</label>
+      </div>
+      <form onSubmit={handleSubmit}>
+        <TextInput
+          value={txHash}
+          onChange={handleTxHashChange}
+          placeholder='Hash'
+        />
+        <div>
+          <button type='submit'>get receipt</button>
+        </div>
+      </form>
+      <div>
+        <pre>{result}</pre>
+      </div>
+    </div>
+  )
+}
+
 function App () {
   const [useWeb3, setUseWeb3] = useState<boolean>(() => {
     return localStorage.getItem('useWeb3') === 'true'
@@ -727,6 +771,9 @@ function App () {
       </section>
       <section>
         <CustomTx wallet={wallet} network={networkName} />
+      </section>
+      <section>
+        <TxReceipt provider={rpcProvider} />
       </section>
       <footer style={{ margin: '1rem 0' }}>© 2020 Miguel Mota</footer>
     </main>
