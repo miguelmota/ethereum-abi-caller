@@ -269,9 +269,22 @@ function AbiForm (props: any = {}) {
         value: tx.value
       }
 
+      const contractArgs = Object.values(args).reduce(
+        (acc: any[], val: any, i: number) => {
+          if (abiObj.inputs[i].type?.endsWith('[]')) {
+            val = val.split(',').map((x: string) => x.trim())
+          }
+          acc.push(val)
+          return acc
+        },
+        []
+      )
+
+      console.log('contract args:', contractArgs)
       const res = await contract[callStatic ? 'callStatic' : 'functions'][
         abiObj.name
-      ](...Object.values(args), txOpts)
+      ](...contractArgs, txOpts)
+      console.log('result:', result)
       setTxhash(res?.hash)
       setResult(JSON.stringify(res, null, 2))
       if (props.onSubmit) {
