@@ -19,7 +19,13 @@ function getTxExplorerUrl (txHash: string, network: string) {
 }
 
 function Converter () {
-  const [values, setValues] = useState<any>({})
+  const [values, setValues] = useState<any>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('converter') || '') || {}
+    } catch (err) {
+      return {}
+    }
+  })
   const units = [
     'wei',
     'kwei',
@@ -33,15 +39,32 @@ function Converter () {
     'gether',
     'tether'
   ]
+  useEffect(() => {
+    try {
+      localStorage.setItem('converter', JSON.stringify(values))
+    } catch (err) {
+      console.error(err)
+    }
+  }, [values])
 
   return (
     <div>
       <label>Converter</label>
-      {units.map(unit => {
+      {units.map((unit, i) => {
         let val = values[unit] ?? ''
+        let pow = -18 + i * 3
+        let exp = pow ? (
+          <>
+            10<sup>{pow}</sup>
+          </>
+        ) : (
+          1
+        )
         return (
           <div key={unit}>
-            <label>{unit}</label>
+            <label>
+              {unit} ({exp})
+            </label>
             <input
               type='text'
               value={val}
@@ -49,6 +72,7 @@ function Converter () {
                 try {
                   const value = event.target.value
                   const result = etherConverter(value, unit)
+                  result[unit] = value
                   if (result['wei'] === 'NaN') {
                     setValues({})
                   } else {
