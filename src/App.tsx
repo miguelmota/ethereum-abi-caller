@@ -232,6 +232,7 @@ function TextInput (props: any = {}) {
 
 function AbiMethodForm (props: any = {}) {
   const cacheKey = JSON.stringify(props.abi)
+  const contractAddress = props.contractAddress
   const [args, setArgs] = useState<any>(() => {
     const defaultArgs: any = {}
     try {
@@ -275,6 +276,7 @@ function AbiMethodForm (props: any = {}) {
   useEffect(() => {
     let tx: any = {
       from: fromAddress ? fromAddress : undefined,
+      to: contractAddress ? contractAddress : undefined,
       value: value ? value : undefined,
       gasPrice: gasPrice
         ? ethers.utils.parseUnits(gasPrice, 'gwei').toString()
@@ -295,7 +297,16 @@ function AbiMethodForm (props: any = {}) {
     }
 
     setTx(tx)
-  }, [abiObj, gasPrice, gasLimit, value, fromAddress, nonce, args])
+  }, [
+    abiObj,
+    contractAddress,
+    gasPrice,
+    gasLimit,
+    value,
+    fromAddress,
+    nonce,
+    args
+  ])
 
   if (abiObj.type !== 'function') {
     return null
@@ -306,13 +317,13 @@ function AbiMethodForm (props: any = {}) {
       if (error) {
         throw new Error(error)
       }
-      if (!props.contractAddress) {
+      if (!contractAddress) {
         throw new Error('contract address is required')
       }
       setTxhash(null)
       setResult('')
       const contract = new ethers.Contract(
-        props.contractAddress,
+        contractAddress,
         [abiObj],
         props.wallet
       )
@@ -431,7 +442,17 @@ function AbiMethodForm (props: any = {}) {
                 value={args[i]}
                 placeholder={input.type}
                 onChange={(val: string) => {
+                  val = val.trim()
                   const newArgs = Object.assign({}, args)
+                  if (input.type === 'address') {
+                    if (val) {
+                      try {
+                        val = ethers.utils.getAddress(val)
+                      } catch (err) {
+                        // noop
+                      }
+                    }
+                  }
                   newArgs[i] = val
                   localStorage.setItem(cacheKey, JSON.stringify(newArgs))
                   setArgs(newArgs)
@@ -785,6 +806,13 @@ function App () {
   }
   const handleContractAddressChange = (value: string) => {
     value = value.trim()
+    if (value) {
+      try {
+        value = ethers.utils.getAddress(value)
+      } catch (err) {
+        // noop
+      }
+    }
     setContractAddress(value)
     localStorage.setItem('contractAddress', value)
   }
