@@ -4,6 +4,10 @@ import * as ethers from 'ethers'
 import etherConverter from 'ether-converter'
 import nativeAbis from './abi'
 
+// TODO:
+//  - Add recent tx history
+//  - Make sections collapsible
+
 const networkOptions = [
   'mainnet',
   'kovan',
@@ -382,6 +386,19 @@ function AbiMethodForm (props: any = {}) {
           {isWritable ? 'writable' : 'read-only'})
         </label>
         {abiObj?.inputs?.map((input: any, i: number) => {
+          const convertTextToHex = (event: SyntheticEvent) => {
+            event.preventDefault()
+            try {
+              const newArgs = Object.assign({}, args)
+              if (!ethers.utils.isHexString(args[i])) {
+                newArgs[i] = ethers.utils.hexlify(Buffer.from(args[i]))
+                localStorage.setItem(cacheKey, JSON.stringify(newArgs))
+                setArgs(newArgs)
+              }
+            } catch (err) {
+              alert(err)
+            }
+          }
           return (
             <div key={i}>
               <label>
@@ -402,6 +419,12 @@ function AbiMethodForm (props: any = {}) {
                   >
                     from web3
                   </button>
+                ) : null}
+                {input.type?.startsWith('bytes') ? (
+                  <>
+                    <span>(must be hex) </span>
+                    <button onClick={convertTextToHex}>hexlify</button>
+                  </>
                 ) : null}
               </label>
               <TextInput
