@@ -1,4 +1,4 @@
-import React, { useEffect, useState, SyntheticEvent } from 'react'
+import React, { useMemo, useEffect, useState, SyntheticEvent } from 'react'
 import * as ethers from 'ethers'
 // @ts-ignore
 import etherConverter from 'ether-converter'
@@ -143,7 +143,7 @@ function CustomTx (props: any = {}) {
 
   return (
     <div>
-      <div>
+      <div style={{ marginBottom: '0.5rem' }}>
         <label>Custom transaction</label>
       </div>
       <textarea value={tx} onChange={handleChange} />
@@ -226,7 +226,7 @@ function TextInput (props: any = {}) {
   return el
 }
 
-function AbiForm (props: any = {}) {
+function AbiMethodForm (props: any = {}) {
   const cacheKey = JSON.stringify(props.abi)
   const [args, setArgs] = useState<any>(() => {
     const defaultArgs: any = {}
@@ -245,33 +245,53 @@ function AbiForm (props: any = {}) {
   const [value, setValue] = useState<string>(() => {
     return localStorage.getItem('value') || ''
   })
+  const [fromAddress, setFromAddress] = useState<string>('')
+  const [nonce, setNonce] = useState<string>(() => {
+    return localStorage.getItem('nonce') || ''
+  })
+  const [error, setError] = useState<string>('')
   const [result, setResult] = useState('')
   const [callStatic, setCallStatic] = useState<boolean>(false)
   const [txhash, setTxhash] = useState<any>(null)
   const [tx, setTx] = useState<any>(null)
   const abiObj = props.abi
+  const windowWeb3 = (window as any).ethereum
+  const provider = useMemo(
+    () => new ethers.providers.Web3Provider(windowWeb3, 'any'),
+    [windowWeb3]
+  )
+  useEffect(() => {
+    const update = async () => {
+      const address = await provider?.getSigner()?.getAddress()
+      setFromAddress(address || '')
+    }
+    update()
+  }, [provider, fromAddress, setFromAddress])
 
   useEffect(() => {
     let tx: any = {
+      from: fromAddress ? fromAddress : undefined,
+      value: value ? value : undefined,
       gasPrice: gasPrice
         ? ethers.utils.parseUnits(gasPrice, 'gwei').toString()
         : undefined,
       gasLimit: gasLimit ? gasLimit : undefined,
-      value: value ? value : undefined
+      nonce: nonce ? nonce : undefined
     }
 
     try {
+      setError('')
       if (abiObj) {
         const iface = new ethers.utils.Interface([abiObj])
         const data = iface.encodeFunctionData(abiObj.name, Object.values(args))
         tx.data = data
       }
     } catch (err) {
-      // noop
+      setError(err.message)
     }
 
     setTx(tx)
-  }, [abiObj, gasPrice, gasLimit, value, args])
+  }, [abiObj, gasPrice, gasLimit, value, fromAddress, nonce, args])
 
   if (abiObj.type !== 'function') {
     return null
@@ -279,6 +299,12 @@ function AbiForm (props: any = {}) {
   const handleSubmit = async (event: any) => {
     event.preventDefault()
     try {
+      if (error) {
+        throw new Error(error)
+      }
+      if (!props.contractAddress) {
+        throw new Error('contract address is required')
+      }
       setTxhash(null)
       setResult('')
       const contract = new ethers.Contract(
@@ -331,24 +357,35 @@ function AbiForm (props: any = {}) {
     setValue(val)
     localStorage.setItem('value', val)
   }
+  const updateNonce = (val: string) => {
+    setNonce(val)
+    localStorage.setItem('nonce', val)
+  }
   const updateCallStatic = (event: any) => {
     setCallStatic(event.target.checked)
   }
 
   const txLink = txhash ? getTxExplorerUrl(txhash, props.network) : null
-  const windowWeb3 = (window as any).ethereum
+  const stateMutability = abiObj?.stateMutability
+  const methodType = abiObj?.type
+  const isWritable =
+    ['nonpayable', 'payable'].includes(stateMutability) &&
+    methodType === 'function'
 
   return (
     <div>
       <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: '0.5rem' }}>Method call</div>
         <label style={{ marginBottom: '0.5rem' }}>
-          <strong>{abiObj.name}</strong>
+          <strong>{abiObj.name}</strong>{' '}
+          {stateMutability ? `(${stateMutability})` : null} (
+          {isWritable ? 'writable' : 'read-only'})
         </label>
         {abiObj?.inputs?.map((input: any, i: number) => {
           return (
             <div key={i}>
               <label>
-                {input.name} ({input.type}){' '}
+                {input.name} ({input.type}) *{' '}
                 {input.type === 'address' && windowWeb3 ? (
                   <button
                     onClick={async (event: SyntheticEvent) => {
@@ -380,8 +417,11 @@ function AbiForm (props: any = {}) {
             </div>
           )
         })}
+        {abiObj?.inputs.length ? <small>* = Required</small> : null}
         <div style={{ padding: '1rem' }}>
-          <label style={{ marginBottom: '0.5rem' }}>Transaction options</label>
+          <label style={{ marginBottom: '0.5rem' }}>
+            Transaction options (optional)
+          </label>
           <label>gas limit</label>
           <TextInput
             value={gasLimit}
@@ -400,9 +440,30 @@ function AbiForm (props: any = {}) {
             placeholder={'value'}
             onChange={updateValue}
           />
+          <label>nonce</label>
+          <TextInput
+            value={nonce}
+            placeholder={'nonce'}
+            onChange={updateNonce}
+          />
         </div>
+        {abiObj?.outputs.length ? (
+          <div>
+            <label style={{ marginBottom: '0.5rem' }}>Return values</label>
+            <ol>
+              {abiObj?.outputs?.map((obj: any) => {
+                return (
+                  <li>
+                    {obj.name} ({obj.type})
+                  </li>
+                )
+              })}
+            </ol>
+          </div>
+        ) : null}
         {tx && (
           <div>
+            <label style={{ marginBottom: '0.5rem' }}>Transaction object</label>
             <pre>{JSON.stringify(tx, null, 2)}</pre>
           </div>
         )}
@@ -424,6 +485,36 @@ function AbiForm (props: any = {}) {
           {txLink}
         </a>
       )}
+    </div>
+  )
+}
+
+function AbiEventForm (props: any = {}) {
+  const abiObj = props.abi
+  const inputs = abiObj?.inputs || []
+
+  return (
+    <div>
+      <div style={{ marginBottom: '0.5rem' }}>Event</div>
+      <div>
+        <label>
+          <strong>{abiObj.name}</strong>
+        </label>
+      </div>
+      <ol>
+        {inputs.map((input: any, i: number) => {
+          return (
+            <li>
+              <strong>{input.name}</strong> ({input.type}){' '}
+              {input.indexed ? `(indexed)` : null}
+            </li>
+          )
+        })}
+      </ol>
+      <div>
+        <label>Signature</label>
+        {abiObj.signature}
+      </div>
     </div>
   )
 }
@@ -450,8 +541,8 @@ function TxReceipt (props: any) {
   const result = JSON.stringify(receipt, null, 2)
   return (
     <div>
-      <div>
-        <label>Transaction Receipt</label>
+      <div style={{ marginBottom: '0.5rem' }}>
+        <label>Transaction receipt</label>
       </div>
       <form onSubmit={handleSubmit}>
         <TextInput
@@ -459,7 +550,7 @@ function TxReceipt (props: any) {
           onChange={handleTxHashChange}
           placeholder='Hash'
         />
-        <div>
+        <div style={{ marginTop: '0.5rem' }}>
           <button type='submit'>get receipt</button>
         </div>
       </form>
@@ -491,7 +582,7 @@ function GetCode (props: any) {
   }
   return (
     <div>
-      <div>
+      <div style={{ marginBottom: '0.5rem' }}>
         <label>Get code</label>
       </div>
       <form onSubmit={handleSubmit}>
@@ -500,7 +591,7 @@ function GetCode (props: any) {
           onChange={handleAddressChange}
           placeholder='Address'
         />
-        <div>
+        <div style={{ marginTop: '0.5rem' }}>
           <button type='submit'>get code</button>
         </div>
       </form>
@@ -546,7 +637,7 @@ function App () {
     return localStorage.getItem('contractAddress') || ''
   })
   const [newAbiName, setNewAbiName] = useState('')
-  const [abiFormShown, showAbiForm] = useState(false)
+  const [abiMethodFormShown, showAbiMethodForm] = useState(false)
   const [selectedAbi, setSelectedAbi] = useState(() => {
     const selected = localStorage.getItem('selectedAbi')
     return selected || 'ERC20'
@@ -573,6 +664,9 @@ function App () {
   })
   const [selectedAbiMethod, setSelectedAbiMethod] = useState(() => {
     return localStorage.getItem('selectedAbiMethod') || 'transfer'
+  })
+  const [selectedAbiEvent, setSelectedAbiEvent] = useState(() => {
+    return localStorage.getItem('selectedAbiEvent') || 'Transfer'
   })
   useEffect(() => {
     ;(window as any).provider = rpcProvider
@@ -680,7 +774,7 @@ function App () {
   }
   const handleAddAbiClick = (event: any) => {
     event.preventDefault()
-    showAbiForm(true)
+    showAbiMethodForm(true)
     setCustomAbi('')
   }
   const handleDeleteAbiClick = (event: any) => {
@@ -711,7 +805,7 @@ function App () {
       const _customAbis = { ...customAbis, ...newAbi }
       localStorage.setItem('customAbis', JSON.stringify(_customAbis))
       setCustomAbis(_customAbis)
-      showAbiForm(false)
+      showAbiMethodForm(false)
       setCustomAbi('')
       setNewAbiName('')
       setSelectedAbi(name)
@@ -721,7 +815,7 @@ function App () {
   }
   const handleCancelAbiClick = (event: any) => {
     event.preventDefault()
-    showAbiForm(false)
+    showAbiMethodForm(false)
     setCustomAbi('')
     setNewAbiName('')
   }
@@ -750,6 +844,30 @@ function App () {
       )
     } catch (err) {}
   }
+  const renderEventsSelect = () => {
+    try {
+      const parsed = JSON.parse(abi)
+      const options = parsed
+        .map((obj: any) => {
+          return obj.type === 'event' ? obj.name : null
+        })
+        .filter((x: any) => x)
+      const handleChange = (value: string) => {
+        setSelectedAbiEvent(value)
+        localStorage.setItem('selectedAbiEvent', value)
+      }
+      if (!options.length) {
+        return null
+      }
+      return (
+        <Select
+          onChange={handleChange}
+          selected={selectedAbiEvent}
+          options={options}
+        />
+      )
+    } catch (err) {}
+  }
   const renderMethodForm = () => {
     try {
       const parsed = JSON.parse(abi)
@@ -757,7 +875,7 @@ function App () {
       if (!filtered.length) return null
       const obj = filtered[0]
       return (
-        <AbiForm
+        <AbiMethodForm
           key={obj.name}
           contractAddress={contractAddress}
           wallet={wallet}
@@ -765,6 +883,17 @@ function App () {
           network={networkName}
         />
       )
+    } catch (err) {
+      // noop
+    }
+  }
+  const renderEventForm = () => {
+    try {
+      const parsed = JSON.parse(abi)
+      const filtered = parsed.filter((x: any) => x.name === selectedAbiEvent)
+      if (!filtered.length) return null
+      const obj = filtered[0]
+      return <AbiEventForm key={obj.name} abi={obj} />
     } catch (err) {
       // noop
     }
@@ -812,7 +941,7 @@ function App () {
       <section>
         <label>ABI</label>
         <div>
-          {abiFormShown ? (
+          {abiMethodFormShown ? (
             <div style={{ display: 'flex' }}>
               <TextInput
                 value={newAbiName}
@@ -836,7 +965,7 @@ function App () {
             </div>
           )}
         </div>
-        {abiFormShown ? (
+        {abiMethodFormShown ? (
           <TextInput
             value={customAbi}
             onChange={handleAbiContent}
@@ -846,11 +975,14 @@ function App () {
         ) : (
           <div>
             <TextInput readOnly={true} value={abi} variant='textarea' />
-            <div>{renderMethodSelect()}</div>
+            <div>
+              {renderMethodSelect()} {renderEventsSelect()}
+            </div>
           </div>
         )}
       </section>
-      {!abiFormShown ? <section>{renderMethodForm()}</section> : null}
+      {!abiMethodFormShown ? <section>{renderMethodForm()}</section> : null}
+      {!abiMethodFormShown ? <section>{renderEventForm()}</section> : null}
       <section>
         <Converter />
       </section>
