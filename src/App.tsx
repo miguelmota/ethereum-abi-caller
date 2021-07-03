@@ -261,10 +261,9 @@ function AbiMethodForm (props: any = {}) {
   const [tx, setTx] = useState<any>(null)
   const abiObj = props.abi
   const windowWeb3 = (window as any).ethereum
-  const provider = useMemo(
-    () => new ethers.providers.Web3Provider(windowWeb3, 'any'),
-    [windowWeb3]
-  )
+  const provider = useMemo(() => {
+    return new ethers.providers.Web3Provider(windowWeb3, 'any')
+  }, [windowWeb3])
   useEffect(() => {
     const update = async () => {
       const address = await provider?.getSigner()?.getAddress()
@@ -563,6 +562,115 @@ function AbiEventForm (props: any = {}) {
   )
 }
 
+function SendEth (props: any) {
+  const { wallet } = props
+  const [address, setAddress] = useState<string>('')
+  const [balance, setBalance] = useState<string>('')
+  const [amount, setAmount] = useState(localStorage.getItem('sendEthAmount'))
+  const [recipient, setRecipient] = useState(
+    localStorage.getItem('sendEthRecipient')
+  )
+  const [result, setResult] = useState<any>(null)
+  useEffect(() => {
+    const update = async () => {
+      setAddress('')
+      setBalance('')
+      if (!wallet) {
+        return
+      }
+      let signer: ethers.Signer
+      if (wallet._isSigner) {
+        signer = wallet
+      } else if (wallet.getSigner) {
+        signer = await wallet.getSigner()
+      } else {
+        return
+      }
+      const _address = await signer.getAddress()
+      setAddress(_address)
+      const _balance = await signer.getBalance()
+      setBalance(ethers.utils.formatUnits(_balance.toString(), 18))
+    }
+    update()
+  }, [wallet])
+  useEffect(() => {
+    localStorage.setItem('sendEthAmount', amount || '')
+  }, [amount])
+  useEffect(() => {
+    localStorage.setItem('sendEthRecipient', recipient || '')
+  }, [recipient])
+  const handleAmountChange = (value: string) => {
+    setAmount(value)
+  }
+  const handleRecipientChange = (value: string) => {
+    setRecipient(value)
+  }
+  const send = async () => {
+    setResult(null)
+    if (!amount) {
+      throw new Error('amount is required')
+    }
+    if (!recipient) {
+      throw new Error('recipient is required')
+    }
+    const tx = await wallet.sendTransaction({
+      to: recipient,
+      value: ethers.BigNumber.from(amount)
+    })
+    setResult(tx)
+    tx.wait((receipt: any) => {
+      setResult(receipt)
+    })
+  }
+  const handleSubmit = async (event: any) => {
+    event.preventDefault()
+    try {
+      await send()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  return (
+    <div>
+      <div style={{ marginBottom: '0.5rem' }}>
+        <label>Send ETH</label>
+      </div>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label>Address</label>
+          <div>{address}</div>
+        </div>
+        <div>
+          <label>Balance</label>
+          <div>{balance} ETH</div>
+        </div>
+        <div>
+          <label>Amount (uint256) *</label>
+          <TextInput
+            value={amount}
+            onChange={handleAmountChange}
+            placeholder='uint256'
+          />
+        </div>
+        <div>
+          <label>Recipient (address) *</label>
+          <TextInput
+            value={recipient}
+            onChange={handleRecipientChange}
+            placeholder='address'
+          />
+        </div>
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>send</button>
+        </div>
+      </form>
+      <div>
+        <pre>{result ? JSON.stringify(result, null, 2) : ''}</pre>
+      </div>
+    </div>
+  )
+}
+
 function TxReceipt (props: any) {
   const { provider } = props
   const [txHash, setTxHash] = useState(localStorage.getItem('txReceiptHash'))
@@ -712,6 +820,18 @@ function App () {
   const [selectedAbiEvent, setSelectedAbiEvent] = useState(() => {
     return localStorage.getItem('selectedAbiEvent') || 'Transfer'
   })
+  const [connectedChainId, setConnectedChainId] = useState<string | undefined>()
+  const [connectedAccounts, setConnectedAccounts] = useState<
+    string[] | undefined
+  >()
+  useEffect(() => {
+    ;(window as any).ethereum.on('chainChanged', (chainId: string) => {
+      setConnectedChainId(chainId)
+    })
+    ;(window as any).ethereum.on('accountsChanged', (accounts: string[]) => {
+      setConnectedAccounts(accounts)
+    })
+  }, [])
   useEffect(() => {
     ;(window as any).provider = rpcProvider
     setNetworkName('')
@@ -723,7 +843,7 @@ function App () {
         setNetworkId(network?.chainId)
       })
       .catch(() => {})
-  }, [rpcProvider])
+  }, [rpcProvider, connectedChainId])
   useEffect(() => {
     try {
       if (useWeb3) {
@@ -749,7 +869,7 @@ function App () {
     } catch (err) {
       console.error(err)
     }
-  }, [useWeb3, privateKey, rpcProvider])
+  }, [useWeb3, privateKey, rpcProvider, connectedChainId, connectedAccounts])
   useEffect(() => {
     const selected = (abis as any)[selectedAbi]
     if (selected) {
@@ -1034,6 +1154,9 @@ function App () {
       </section>
       {!abiMethodFormShown ? <section>{renderMethodForm()}</section> : null}
       {!abiMethodFormShown ? <section>{renderEventForm()}</section> : null}
+      <section>
+        <SendEth wallet={wallet} />
+      </section>
       <section>
         <Converter />
       </section>
