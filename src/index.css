@@ -62,3 +62,33 @@ fieldset {
   border: 1px solid black;
   margin-bottom: 1rem;
 }
+
+details {
+  position: relative;
+  min-height: 50px;
+}
+
+details .close {
+  display: none;
+  background: white;
+}
+
+details[open] .open {
+  display: none;
+}
+
+details[open] .close {
+  display: inline-block;
+}
+
+details > summary {
+  width: 100%;
+  list-style: none;
+  cursor: pointer;
+  position: absolute;
+  min-height: 25px;
+}
+
+details > summary::marker {
+  display: none;
+}

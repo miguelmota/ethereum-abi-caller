@@ -4,10 +4,6 @@ import * as ethers from 'ethers'
 import etherConverter from 'ether-converter'
 import nativeAbis from './abi'
 
-// TODO:
-//  - Add recent tx history
-//  - Make sections collapsible
-
 const networkOptions = [
   'mainnet',
   'kovan',
@@ -24,6 +20,25 @@ function intToHex (value: number) {
 function getTxExplorerUrl (txHash: string, network: string) {
   const subdomain = network === 'mainnet' ? '' : `${network}.`
   return `https://${subdomain}etherscan.io/tx/${txHash}`
+}
+
+function Fieldset (props: any) {
+  const { legend, children } = props
+  return (
+    <details open>
+      <summary>
+        <span className='open'>
+          {legend} {'▾'}
+        </span>
+      </summary>
+      <fieldset>
+        <legend>
+          {legend} <span className='close'>{'▴'}</span>
+        </legend>
+        {children}
+      </fieldset>
+    </details>
+  )
 }
 
 function Converter () {
@@ -1140,8 +1155,7 @@ function App () {
       <header>
         <h1>Ethereum ABI caller tool</h1>
       </header>
-      <fieldset>
-        <legend>Network</legend>
+      <Fieldset legend='Network'>
         <section>
           <Select
             onChange={handleNetworkOptionChange}
@@ -1158,9 +1172,8 @@ function App () {
             onChange={handleRpcProviderUrlChange}
           />
         </section>
-      </fieldset>
-      <fieldset>
-        <legend>Signer</legend>
+      </Fieldset>
+      <Fieldset legend='Signer'>
         <div>
           <input type='checkbox' checked={useWeb3} onChange={updateUseWeb3} />
           use web3
@@ -1173,9 +1186,8 @@ function App () {
             onChange={handlePrivateKeyChange}
           />
         </section>
-      </fieldset>
-      <fieldset>
-        <legend>Contract</legend>
+      </Fieldset>
+      <Fieldset legend='Contract'>
         <section>
           <label>Contract address</label>
           <TextInput
@@ -1184,9 +1196,8 @@ function App () {
             placeholder='0x'
           />
         </section>
-      </fieldset>
-      <fieldset>
-        <legend>ABI</legend>
+      </Fieldset>
+      <Fieldset legend='ABI'>
         <section>
           <div>
             {abiMethodFormShown ? (
@@ -1227,63 +1238,54 @@ function App () {
             </div>
           )}
         </section>
-      </fieldset>
-      <fieldset>
-        <legend>Method</legend>
+      </Fieldset>
+      <Fieldset legend='Method'>
         {!abiMethodFormShown && (
           <div style={{ marginBottom: '1rem' }}>{renderMethodSelect()}</div>
         )}
         {!abiMethodFormShown ? <section>{renderMethodForm()}</section> : null}
-      </fieldset>
-      <fieldset>
-        <legend>Event</legend>
+      </Fieldset>
+      <Fieldset legend='Event'>
         {!abiMethodFormShown && (
           <div style={{ marginBottom: '1rem' }}>{renderEventsSelect()}</div>
         )}
         {!abiMethodFormShown ? <section>{renderEventForm()}</section> : null}
-      </fieldset>
-      <fieldset>
-        <legend>Send ETH</legend>
+      </Fieldset>
+      <Fieldset legend='Send ETH'>
         <section>
           <SendEth wallet={wallet} />
         </section>
-      </fieldset>
-      <fieldset>
-        <legend>Unit converter</legend>
+      </Fieldset>
+      <Fieldset legend='Unit converter'>
         <section>
           <Converter />
         </section>
-      </fieldset>
-      <fieldset>
-        <legend>Custom Transaction</legend>
+      </Fieldset>
+      <Fieldset legend='Custom Transaction'>
         <section>
           <CustomTx wallet={wallet} network={networkName} />
         </section>
-      </fieldset>
-      <fieldset>
-        <legend>Transaction Receipt</legend>
+      </Fieldset>
+      <Fieldset legend='Transaction Receipt'>
         <section>
           <TxReceipt provider={rpcProvider} />
         </section>
-      </fieldset>
-      <fieldset>
-        <legend>Get code</legend>
+      </Fieldset>
+      <Fieldset legend='Get code'>
         <section>
           <GetCode provider={rpcProvider} />
         </section>
-      </fieldset>
-      <fieldset>
-        <legend>Get nonce</legend>
+      </Fieldset>
+      <Fieldset legend='Get nonce'>
         <section>
           <GetNonce provider={rpcProvider} />
         </section>
-      </fieldset>
-      <fieldset>
-        <legend>Clear</legend>
+      </Fieldset>
+      <Fieldset legend='Clear'>
         <section>
           <ClearLocalStorage />
         </section>
-      </fieldset>
+      </Fieldset>
       <footer style={{ margin: '1rem 0' }}>
         © 2020{' '}
         <a
