@@ -106,7 +106,8 @@ function CustomTx (props: any = {}) {
         value: '',
         data: '',
         gasLimit: '',
-        gasPrice: ''
+        gasPrice: '',
+        nonce: ''
       },
       null,
       2
@@ -147,9 +148,6 @@ function CustomTx (props: any = {}) {
 
   return (
     <div>
-      <div style={{ marginBottom: '0.5rem' }}>
-        <label>Custom transaction</label>
-      </div>
       <textarea value={tx} onChange={handleChange} />
       <div>
         <input
@@ -389,7 +387,6 @@ function AbiMethodForm (props: any = {}) {
   return (
     <div>
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '0.5rem' }}>Method call</div>
         <label style={{ marginBottom: '0.5rem' }}>
           <strong>{abiObj.name}</strong>{' '}
           {stateMutability ? `(${stateMutability})` : null} (
@@ -632,9 +629,6 @@ function SendEth (props: any) {
   }
   return (
     <div>
-      <div style={{ marginBottom: '0.5rem' }}>
-        <label>Send ETH</label>
-      </div>
       <form onSubmit={handleSubmit}>
         <div>
           <label>Address</label>
@@ -693,10 +687,8 @@ function TxReceipt (props: any) {
   const result = JSON.stringify(receipt, null, 2)
   return (
     <div>
-      <div style={{ marginBottom: '0.5rem' }}>
-        <label>Transaction receipt</label>
-      </div>
       <form onSubmit={handleSubmit}>
+        <label>Transaction hash</label>
         <TextInput
           value={txHash}
           onChange={handleTxHashChange}
@@ -734,14 +726,12 @@ function GetCode (props: any) {
   }
   return (
     <div>
-      <div style={{ marginBottom: '0.5rem' }}>
-        <label>Get code</label>
-      </div>
       <form onSubmit={handleSubmit}>
+        <label>Address</label>
         <TextInput
           value={address}
           onChange={handleAddressChange}
-          placeholder='Address'
+          placeholder='0x'
         />
         <div style={{ marginTop: '0.5rem' }}>
           <button type='submit'>get code</button>
@@ -756,7 +746,11 @@ function GetCode (props: any) {
 
 function App () {
   const [useWeb3, setUseWeb3] = useState<boolean>(() => {
-    return localStorage.getItem('useWeb3') === 'true'
+    const cached = localStorage.getItem('useWeb3')
+    if (cached) {
+      return cached === 'true'
+    }
+    return true
   })
   const [privateKey, setPrivateKey] = useState(() => {
     return localStorage.getItem('privateKey') || ''
@@ -844,6 +838,9 @@ function App () {
       })
       .catch(() => {})
   }, [rpcProvider, connectedChainId])
+  useEffect(() => {
+    ;(window as any).wallet = wallet
+  }, [wallet])
   useEffect(() => {
     try {
       if (useWeb3) {
@@ -1074,102 +1071,148 @@ function App () {
       <header>
         <h1>Ethereum ABI caller tool</h1>
       </header>
-      <section>
-        <Select
-          onChange={handleNetworkOptionChange}
-          selected={networkOption}
-          options={networkOptions}
-        />
-        <div>network: {networkName}</div>
-        <div>chain ID: {networkId}</div>
-      </section>
-      <div>
-        <input type='checkbox' checked={useWeb3} onChange={updateUseWeb3} />
-        use web3
-      </div>
-      <section>
-        <label>Private key</label>
-        <TextInput
-          disabled={useWeb3}
-          value={privateKey}
-          onChange={handlePrivateKeyChange}
-        />
-      </section>
-      <section>
-        <label>RPC provider url</label>
-        <TextInput
-          value={rpcProviderUrl}
-          onChange={handleRpcProviderUrlChange}
-        />
-      </section>
-      <section>
-        <label>Contract address</label>
-        <TextInput
-          value={contractAddress}
-          onChange={handleContractAddressChange}
-        />
-      </section>
-      <section>
-        <label>ABI</label>
+      <fieldset>
+        <legend>Network</legend>
+        <section>
+          <Select
+            onChange={handleNetworkOptionChange}
+            selected={networkOption}
+            options={networkOptions}
+          />
+          <div>network: {networkName}</div>
+          <div>chain ID: {networkId}</div>
+        </section>
+        <section>
+          <label>RPC provider url</label>
+          <TextInput
+            value={rpcProviderUrl}
+            onChange={handleRpcProviderUrlChange}
+          />
+        </section>
+      </fieldset>
+      <fieldset>
+        <legend>Signer</legend>
         <div>
-          {abiMethodFormShown ? (
-            <div style={{ display: 'flex' }}>
-              <TextInput
-                value={newAbiName}
-                onChange={handleNewAbiNameChange}
-                placeholder={'ABI name'}
-              />
-              <button onClick={handleSaveAbiClick}>Save</button>
-              <button onClick={handleCancelAbiClick}>Cancel</button>
-            </div>
-          ) : (
+          <input type='checkbox' checked={useWeb3} onChange={updateUseWeb3} />
+          use web3
+        </div>
+        <section>
+          <label>Private key</label>
+          <TextInput
+            disabled={useWeb3}
+            value={privateKey}
+            onChange={handlePrivateKeyChange}
+          />
+        </section>
+      </fieldset>
+      <fieldset>
+        <legend>Contract</legend>
+        <section>
+          <label>Contract address</label>
+          <TextInput
+            value={contractAddress}
+            onChange={handleContractAddressChange}
+            placeholder='0x'
+          />
+        </section>
+      </fieldset>
+      <fieldset>
+        <legend>ABI</legend>
+        <section>
+          <div>
+            {abiMethodFormShown ? (
+              <div style={{ display: 'flex' }}>
+                <TextInput
+                  value={newAbiName}
+                  onChange={handleNewAbiNameChange}
+                  placeholder={'ABI name'}
+                />
+                <button onClick={handleSaveAbiClick}>Save</button>
+                <button onClick={handleCancelAbiClick}>Cancel</button>
+              </div>
+            ) : (
+              <div style={{ marginBottom: '1rem' }}>
+                <Select
+                  onChange={handleSelectChange}
+                  selected={selectedAbi}
+                  options={abiOptions}
+                />
+                <button onClick={handleAddAbiClick}>Add</button>
+                {!(nativeAbis as any)[selectedAbi] ? (
+                  <button onClick={handleDeleteAbiClick}>Delete</button>
+                ) : null}
+              </div>
+            )}
+          </div>
+          {abiMethodFormShown && (
+            <TextInput
+              value={customAbi}
+              onChange={handleAbiContent}
+              variant='textarea'
+              placeholder='[]'
+            />
+          )}
+          {!abiMethodFormShown && (
             <div>
-              <Select
-                onChange={handleSelectChange}
-                selected={selectedAbi}
-                options={abiOptions}
-              />
-              <button onClick={handleAddAbiClick}>Add</button>
-              {!(nativeAbis as any)[selectedAbi] ? (
-                <button onClick={handleDeleteAbiClick}>Delete</button>
-              ) : null}
+              <TextInput readOnly={true} value={abi} variant='textarea' />
             </div>
           )}
-        </div>
-        {abiMethodFormShown ? (
-          <TextInput
-            value={customAbi}
-            onChange={handleAbiContent}
-            variant='textarea'
-            placeholder='[]'
-          />
-        ) : (
-          <div>
-            <TextInput readOnly={true} value={abi} variant='textarea' />
-            <div>
-              {renderMethodSelect()} {renderEventsSelect()}
-            </div>
-          </div>
+        </section>
+      </fieldset>
+      <fieldset>
+        <legend>Method</legend>
+        {!abiMethodFormShown && (
+          <div style={{ marginBottom: '1rem' }}>{renderMethodSelect()}</div>
         )}
-      </section>
-      {!abiMethodFormShown ? <section>{renderMethodForm()}</section> : null}
-      {!abiMethodFormShown ? <section>{renderEventForm()}</section> : null}
-      <section>
-        <SendEth wallet={wallet} />
-      </section>
-      <section>
-        <Converter />
-      </section>
-      <section>
-        <CustomTx wallet={wallet} network={networkName} />
-      </section>
-      <section>
-        <TxReceipt provider={rpcProvider} />
-      </section>
-      <section>
-        <GetCode provider={rpcProvider} />
-      </section>
-      <footer style={{ margin: '1rem 0' }}>© 2020 Miguel Mota</footer>
+        {!abiMethodFormShown ? <section>{renderMethodForm()}</section> : null}
+      </fieldset>
+      <fieldset>
+        <legend>Event</legend>
+        {!abiMethodFormShown && (
+          <div style={{ marginBottom: '1rem' }}>{renderEventsSelect()}</div>
+        )}
+        {!abiMethodFormShown ? <section>{renderEventForm()}</section> : null}
+      </fieldset>
+      <fieldset>
+        <legend>Send ETH</legend>
+        <section>
+          <SendEth wallet={wallet} />
+        </section>
+      </fieldset>
+      <fieldset>
+        <legend>Unit converter</legend>
+        <section>
+          <Converter />
+        </section>
+      </fieldset>
+      <fieldset>
+        <legend>Custom Transaction</legend>
+        <section>
+          <CustomTx wallet={wallet} network={networkName} />
+        </section>
+      </fieldset>
+      <fieldset>
+        <legend>Transaction Receipt</legend>
+        <section>
+          <TxReceipt provider={rpcProvider} />
+        </section>
+      </fieldset>
+      <fieldset>
+        <legend>Get code</legend>
+        <section>
+          <GetCode provider={rpcProvider} />
+        </section>
+      </fieldset>
+      <footer style={{ margin: '1rem 0' }}>
+        © 2020{' '}
+        <a
+          href='https://miguelmota.com'
+          target='_blank'
+          rel='noopener noreferrer'
+        >
+          Miguel Mota
+        </a>
+      </footer>
     </main>
   )
 }

@@ -57,3 +57,8 @@ pre {
 footer {
   display: block;
 }
+
+fieldset {
+  border: 1px solid black;
+  margin-bottom: 1rem;
+}
