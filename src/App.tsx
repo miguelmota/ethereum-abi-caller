@@ -18,7 +18,7 @@ const networkOptions = [
 ]
 
 function intToHex (value: number) {
-  return `0x${Number((value || 0).toString()).toString(16)}`
+  return ethers.BigNumber.from((value || 0).toString()).toHexString()
 }
 
 function getTxExplorerUrl (txHash: string, network: string) {
@@ -793,6 +793,26 @@ function GetNonce (props: any) {
   )
 }
 
+function ClearLocalStorage () {
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    try {
+      localStorage.clear()
+      sessionStorage.clear()
+      window.location.reload()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <button type='submit'>Clear local storage</button>
+      </form>
+    </div>
+  )
+}
+
 function App () {
   const [useWeb3, setUseWeb3] = useState<boolean>(() => {
     const cached = localStorage.getItem('useWeb3')
@@ -1256,6 +1276,12 @@ function App () {
         <legend>Get nonce</legend>
         <section>
           <GetNonce provider={rpcProvider} />
+        </section>
+      </fieldset>
+      <fieldset>
+        <legend>Clear</legend>
+        <section>
+          <ClearLocalStorage />
         </section>
       </fieldset>
       <footer style={{ margin: '1rem 0' }}>
