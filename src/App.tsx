@@ -14,7 +14,11 @@ const networkOptions = [
 ]
 
 function intToHex (value: number) {
-  return ethers.BigNumber.from((value || 0).toString()).toHexString()
+  try {
+    return ethers.BigNumber.from((value || 0).toString()).toHexString()
+  } catch (err) {
+    return '0x'
+  }
 }
 
 function getTxExplorerUrl (txHash: string, network: string) {
@@ -41,7 +45,7 @@ function Fieldset (props: any) {
   )
 }
 
-function Converter () {
+function UnitConverter () {
   const [values, setValues] = useState<any>(() => {
     try {
       return JSON.parse(localStorage.getItem('converter') || '') || {}
@@ -72,7 +76,6 @@ function Converter () {
 
   return (
     <div>
-      <label>Converter</label>
       {units.map((unit, i) => {
         let val = values[unit] ?? ''
         let pow = -18 + i * 3
@@ -88,24 +91,31 @@ function Converter () {
             <label>
               {unit} ({exp})
             </label>
-            <input
-              type='text'
-              value={val}
-              onChange={(event: any) => {
-                try {
-                  const value = event.target.value
-                  const result = etherConverter(value, unit)
-                  result[unit] = value
-                  if (result['wei'] === 'NaN') {
-                    setValues({})
-                  } else {
-                    setValues(result)
-                  }
-                } catch (err) {
-                  console.error(err)
-                }
-              }}
-            />
+            <div style={{ display: 'flex' }}>
+              <div style={{ width: '100%' }}>
+                <input
+                  type='text'
+                  value={val}
+                  onChange={(event: any) => {
+                    try {
+                      const value = event.target.value
+                      const result = etherConverter(value, unit)
+                      result[unit] = value
+                      if (result['wei'] === 'NaN') {
+                        setValues({})
+                      } else {
+                        setValues(result)
+                      }
+                    } catch (err) {
+                      console.error(err)
+                    }
+                  }}
+                />
+              </div>
+              <div style={{ width: '300px', marginLeft: '1rem' }}>
+                {intToHex(val)}
+              </div>
+            </div>
           </div>
         )
       })}
@@ -1258,7 +1268,7 @@ function App () {
       </Fieldset>
       <Fieldset legend='Unit converter'>
         <section>
-          <Converter />
+          <UnitConverter />
         </section>
       </Fieldset>
       <Fieldset legend='Custom Transaction'>
