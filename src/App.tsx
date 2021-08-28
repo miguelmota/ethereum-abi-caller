@@ -17,6 +17,10 @@ const networkOptions = [
   'injected'
 ]
 
+function intToHex (value: number) {
+  return `0x${Number((value || 0).toString()).toString(16)}`
+}
+
 function getTxExplorerUrl (txHash: string, network: string) {
   const subdomain = network === 'mainnet' ? '' : `${network}.`
   return `https://${subdomain}etherscan.io/tx/${txHash}`
@@ -744,6 +748,51 @@ function GetCode (props: any) {
   )
 }
 
+function GetNonce (props: any) {
+  const { provider } = props
+  const [address, setAddress] = useState(
+    localStorage.getItem('getNonceAddress')
+  )
+  const [nonce, setNonce] = useState<number | null>(null)
+  useEffect(() => {
+    localStorage.setItem('getNonceAddress', address || '')
+  }, [address])
+  const handleAddressChange = (value: string) => {
+    setAddress(value)
+  }
+  const getNonce = async () => {
+    setNonce(null)
+    const _nonce = await provider.getTransactionCount(address, 'pending')
+    setNonce(Number(_nonce.toString()))
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    getNonce()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>Address</label>
+        <TextInput
+          value={address}
+          onChange={handleAddressChange}
+          placeholder='0x'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>get nonce</button>
+        </div>
+      </form>
+      <div>
+        {nonce !== null && (
+          <pre>
+            {nonce} ({intToHex(nonce)})
+          </pre>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function App () {
   const [useWeb3, setUseWeb3] = useState<boolean>(() => {
     const cached = localStorage.getItem('useWeb3')
@@ -1201,6 +1250,12 @@ function App () {
         <legend>Get code</legend>
         <section>
           <GetCode provider={rpcProvider} />
+        </section>
+      </fieldset>
+      <fieldset>
+        <legend>Get nonce</legend>
+        <section>
+          <GetNonce provider={rpcProvider} />
         </section>
       </fieldset>
       <footer style={{ margin: '1rem 0' }}>
