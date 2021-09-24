@@ -7,6 +7,9 @@ import SaddleSwap from './SaddleSwap.json'
 import UniswapV2Factory from './UniswapV2Factory.json'
 import UniswapV2Pair from './UniswapV2Pair.json'
 import UniswapV2Router02 from './UniswapV2Router02.json'
+import UniswapV3Factory from './UniswapV3Factory.json'
+import UniswapV3Pool from './UniswapV3Pool.json'
+import UniswapV3SwapRouter from './UniswapV3SwapRouter.json'
 
 const abis = {
   AuthereumAccount,
@@ -17,7 +20,10 @@ const abis = {
   SaddleSwap,
   UniswapV2Factory,
   UniswapV2Pair,
-  UniswapV2Router02
+  UniswapV2Router02,
+  UniswapV3Factory,
+  UniswapV3Pool,
+  UniswapV3SwapRouter
 }
 
 export default abis

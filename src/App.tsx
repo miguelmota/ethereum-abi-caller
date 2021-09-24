@@ -1,8 +1,9 @@
 import React, { useMemo, useEffect, useState, SyntheticEvent } from 'react'
-import * as ethers from 'ethers'
+import { BigNumber, Contract, Wallet, Signer, providers, utils } from 'ethers'
 // @ts-ignore
 import etherConverter from 'ether-converter'
 import nativeAbis from './abi'
+;(window as any).BigNumber = BigNumber
 
 const networkOptions = [
   'mainnet',
@@ -15,7 +16,7 @@ const networkOptions = [
 
 function intToHex (value: number) {
   try {
-    return ethers.BigNumber.from((value || 0).toString()).toHexString()
+    return BigNumber.from((value || 0).toString()).toHexString()
   } catch (err) {
     return '0x'
   }
@@ -289,7 +290,7 @@ function AbiMethodForm (props: any = {}) {
   const abiObj = props.abi
   const windowWeb3 = (window as any).ethereum
   const provider = useMemo(() => {
-    return new ethers.providers.Web3Provider(windowWeb3, 'any')
+    return new providers.Web3Provider(windowWeb3, 'any')
   }, [windowWeb3])
   useEffect(() => {
     const update = async () => {
@@ -305,7 +306,7 @@ function AbiMethodForm (props: any = {}) {
       to: contractAddress ? contractAddress : undefined,
       value: value ? value : undefined,
       gasPrice: gasPrice
-        ? ethers.utils.parseUnits(gasPrice, 'gwei').toString()
+        ? utils.parseUnits(gasPrice, 'gwei').toString()
         : undefined,
       gasLimit: gasLimit ? gasLimit : undefined,
       nonce: nonce ? nonce : undefined
@@ -314,7 +315,7 @@ function AbiMethodForm (props: any = {}) {
     try {
       setError('')
       if (abiObj) {
-        const iface = new ethers.utils.Interface([abiObj])
+        const iface = new utils.Interface([abiObj])
         const data = iface.encodeFunctionData(abiObj.name, Object.values(args))
         tx.data = data
       }
@@ -348,11 +349,7 @@ function AbiMethodForm (props: any = {}) {
       }
       setTxhash(null)
       setResult('')
-      const contract = new ethers.Contract(
-        contractAddress,
-        [abiObj],
-        props.wallet
-      )
+      const contract = new Contract(contractAddress, [abiObj], props.wallet)
 
       const txOpts = {
         gasPrice: tx.gasPrice,
@@ -426,8 +423,8 @@ function AbiMethodForm (props: any = {}) {
             event.preventDefault()
             try {
               const newArgs = Object.assign({}, args)
-              if (!ethers.utils.isHexString(args[i])) {
-                newArgs[i] = ethers.utils.hexlify(Buffer.from(args[i]))
+              if (!utils.isHexString(args[i])) {
+                newArgs[i] = utils.hexlify(Buffer.from(args[i]))
                 localStorage.setItem(cacheKey, JSON.stringify(newArgs))
                 setArgs(newArgs)
               }
@@ -443,7 +440,7 @@ function AbiMethodForm (props: any = {}) {
                   <button
                     onClick={async (event: SyntheticEvent) => {
                       event.preventDefault()
-                      const provider = new ethers.providers.Web3Provider(
+                      const provider = new providers.Web3Provider(
                         windowWeb3,
                         'any'
                       )
@@ -472,7 +469,7 @@ function AbiMethodForm (props: any = {}) {
                   if (input.type === 'address') {
                     if (val) {
                       try {
-                        val = ethers.utils.getAddress(val)
+                        val = utils.getAddress(val)
                       } catch (err) {
                         // noop
                       }
@@ -604,7 +601,7 @@ function SendEth (props: any) {
       if (!wallet) {
         return
       }
-      let signer: ethers.Signer
+      let signer: Signer
       if (wallet._isSigner) {
         signer = wallet
       } else if (wallet.getSigner) {
@@ -615,7 +612,7 @@ function SendEth (props: any) {
       const _address = await signer.getAddress()
       setAddress(_address)
       const _balance = await signer.getBalance()
-      setBalance(ethers.utils.formatUnits(_balance.toString(), 18))
+      setBalance(utils.formatUnits(_balance.toString(), 18))
     }
     update()
   }, [wallet])
@@ -641,7 +638,7 @@ function SendEth (props: any) {
     }
     const tx = await wallet.sendTransaction({
       to: recipient,
-      value: ethers.BigNumber.from(amount)
+      value: BigNumber.from(amount)
     })
     setResult(tx)
     tx.wait((receipt: any) => {
@@ -861,16 +858,14 @@ function App () {
     const net = localStorage.getItem('networkOption') || 'mainnet'
     const url = localStorage.getItem('rpcProviderUrl')
     if (url) {
-      return new ethers.providers.StaticJsonRpcProvider(
-        url.replace('{network}', net)
-      )
+      return new providers.StaticJsonRpcProvider(url.replace('{network}', net))
     }
 
     if (net === 'injected') {
-      return new ethers.providers.Web3Provider((window as any).ethereum, 'any')
+      return new providers.Web3Provider((window as any).ethereum, 'any')
     }
 
-    return ethers.providers.getDefaultProvider(net)
+    return providers.getDefaultProvider(net)
   })
   const [wallet, setWallet] = useState<any>(rpcProvider)
   const [contractAddress, setContractAddress] = useState(() => {
@@ -939,7 +934,7 @@ function App () {
     try {
       if (useWeb3) {
         if ((window as any).ethereum) {
-          const provider = new ethers.providers.Web3Provider(
+          const provider = new providers.Web3Provider(
             (window as any).ethereum,
             'any'
           )
@@ -951,7 +946,7 @@ function App () {
       } else {
         if (privateKey) {
           const priv = privateKey.replace(/^(0x)?/, '0x')
-          const wal = new ethers.Wallet(priv, rpcProvider)
+          const wal = new Wallet(priv, rpcProvider)
           setWallet(wal)
         } else {
           setWallet(null)
@@ -985,16 +980,16 @@ function App () {
     localStorage.setItem('networkOption', value)
     if (rpcProviderUrl) {
       let url = rpcProviderUrl.replace('{network}', value)
-      const provider = new ethers.providers.JsonRpcProvider(url)
+      const provider = new providers.JsonRpcProvider(url)
       setRpcProvider(provider)
     } else if (value === 'injected') {
-      const provider = new ethers.providers.Web3Provider(
+      const provider = new providers.Web3Provider(
         (window as any).ethereum,
         'any'
       )
       setRpcProvider(provider)
     } else {
-      setRpcProvider(ethers.providers.getDefaultProvider(value))
+      setRpcProvider(providers.getDefaultProvider(value))
     }
   }
   const handlePrivateKeyChange = (value: string) => {
@@ -1007,7 +1002,7 @@ function App () {
       setRpcProviderUrl(value)
       localStorage.setItem('rpcProviderUrl', value)
       value = value.replace('{network}', networkOption)
-      const provider = new ethers.providers.JsonRpcProvider(
+      const provider = new providers.JsonRpcProvider(
         value.replace('{network}', networkOption)
       )
       setRpcProvider(provider)
@@ -1019,7 +1014,7 @@ function App () {
     value = value.trim()
     if (value) {
       try {
-        value = ethers.utils.getAddress(value)
+        value = utils.getAddress(value)
       } catch (err) {
         // noop
       }
