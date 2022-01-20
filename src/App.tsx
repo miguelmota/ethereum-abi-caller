@@ -1,9 +1,18 @@
 import React, { useMemo, useEffect, useState, SyntheticEvent } from 'react'
-import { BigNumber, Contract, Wallet, Signer, providers, utils } from 'ethers'
+import {
+  ethers,
+  BigNumber,
+  Contract,
+  Wallet,
+  Signer,
+  providers,
+  utils
+} from 'ethers'
 // @ts-ignore
 import etherConverter from 'ether-converter'
 import nativeAbis from './abi'
 ;(window as any).BigNumber = BigNumber
+;(window as any).ethers = ethers
 
 const networkOptions = [
   'mainnet',
@@ -178,6 +187,9 @@ function CustomTx (props: any = {}) {
 
   return (
     <div>
+      <div>
+        <small>Use hex values</small>
+      </div>
       <textarea value={tx} onChange={handleChange} />
       <div>
         <input
@@ -294,8 +306,12 @@ function AbiMethodForm (props: any = {}) {
   }, [windowWeb3])
   useEffect(() => {
     const update = async () => {
-      const address = await provider?.getSigner()?.getAddress()
-      setFromAddress(address || '')
+      try {
+        const address = await provider?.getSigner()?.getAddress()
+        setFromAddress(address || '')
+      } catch (err) {
+        console.error(err)
+      }
     }
     update()
   }, [provider, fromAddress, setFromAddress])
@@ -609,10 +625,14 @@ function SendEth (props: any) {
       } else {
         return
       }
-      const _address = await signer.getAddress()
-      setAddress(_address)
-      const _balance = await signer.getBalance()
-      setBalance(utils.formatUnits(_balance.toString(), 18))
+      try {
+        const _address = await signer.getAddress()
+        setAddress(_address)
+        const _balance = await signer.getBalance()
+        setBalance(utils.formatUnits(_balance.toString(), 18))
+      } catch (err) {
+        console.error(err)
+      }
     }
     update()
   }, [wallet])
@@ -868,6 +888,7 @@ function App () {
     return providers.getDefaultProvider(net)
   })
   const [wallet, setWallet] = useState<any>(rpcProvider)
+  const [walletAddress, setWalletAddress] = useState<string>('')
   const [contractAddress, setContractAddress] = useState(() => {
     return localStorage.getItem('contractAddress') || ''
   })
@@ -929,6 +950,23 @@ function App () {
   }, [rpcProvider, connectedChainId])
   useEffect(() => {
     ;(window as any).wallet = wallet
+
+    const updateWalletAddress = async () => {
+      setWalletAddress('')
+      try {
+        let signer: Signer = wallet
+        if (wallet.getSigner) {
+          signer = await wallet.getSigner()
+        }
+        if (signer?.getAddress) {
+          const address = await signer.getAddress()
+          setWalletAddress(address)
+        }
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    updateWalletAddress()
   }, [wallet])
   useEffect(() => {
     try {
@@ -1155,6 +1193,19 @@ function App () {
       // noop
     }
   }
+
+  const handleConnect = async (event: any) => {
+    event.preventDefault()
+    try {
+      const windowWeb3 = (window as any).ethereum
+      if (windowWeb3 && windowWeb3.enable) {
+        await windowWeb3.enable()
+      }
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   return (
     <main>
       <header>
@@ -1190,6 +1241,20 @@ function App () {
             value={privateKey}
             onChange={handlePrivateKeyChange}
           />
+        </section>
+        {!!walletAddress && (
+          <section>
+            <label>Address</label>
+            <div>{walletAddress}</div>
+          </section>
+        )}
+        <section>
+          <button
+            onClick={handleConnect}
+            disabled={!useWeb3 || !!walletAddress}
+          >
+            Connect Wallet
+          </button>
         </section>
       </Fieldset>
       <Fieldset legend='Contract'>
