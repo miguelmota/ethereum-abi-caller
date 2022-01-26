@@ -835,6 +835,51 @@ function GetNonce (props: any) {
   )
 }
 
+function HexCoder (props: any) {
+  const [value, setValue] = useState(
+    localStorage.getItem('hexCoderValue' || '')
+  )
+  const [result, setResult] = useState<string | null>(null)
+  useEffect(() => {
+    localStorage.setItem('hexCoderValue', value || '')
+  }, [value])
+  const handleValueChange = (_value: string) => {
+    setValue(_value)
+  }
+  const convert = () => {
+    try {
+      setResult(null)
+      if (value?.startsWith('0x')) {
+        setResult(BigNumber.from(value).toString())
+      } else {
+        setResult(BigNumber.from(value).toHexString())
+      }
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    convert()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>Hex or number</label>
+        <TextInput
+          value={value}
+          onChange={handleValueChange}
+          placeholder='0x123'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>convert</button>
+        </div>
+      </form>
+      <div>{result !== null && <pre>{result}</pre>}</div>
+    </div>
+  )
+}
+
 function ClearLocalStorage () {
   const handleSubmit = (event: any) => {
     event.preventDefault()
@@ -1349,6 +1394,11 @@ function App () {
       <Fieldset legend='Get nonce'>
         <section>
           <GetNonce provider={rpcProvider} />
+        </section>
+      </Fieldset>
+      <Fieldset legend='Hex coder'>
+        <section>
+          <HexCoder />
         </section>
       </Fieldset>
       <Fieldset legend='Clear'>
