@@ -135,7 +135,10 @@ function UnitConverter () {
 
 function CustomTx (props: any = {}) {
   const { wallet } = props
-  const [callStatic, setCallStatic] = useState<boolean>(false)
+  const cacheKey = 'customTxMethodType'
+  const [methodType, setMethodType] = useState<string>(() => {
+    return localStorage.getItem(cacheKey) || 'broadcast'
+  })
   const [txhash, setTxhash] = useState<any>(null)
   const [result, setResult] = useState('')
   const [tx, setTx] = useState<any>(() => {
@@ -159,11 +162,13 @@ function CustomTx (props: any = {}) {
   })
   const handleChange = (event: any) => {
     const val = event.target.value
-    localStorage.setItem('customTx', val)
     setTx(val)
+    localStorage.setItem('customTx', val)
   }
-  const updateCallStatic = (event: any) => {
-    setCallStatic(event.target.checked)
+  const updateMethodType = (event: any) => {
+    const { value } = event.target
+    setMethodType(value)
+    localStorage.setItem(cacheKey, value)
   }
   const send = async () => {
     try {
@@ -171,8 +176,12 @@ function CustomTx (props: any = {}) {
       setResult('')
       const txData = JSON.parse(tx)
       let res: any
-      if (callStatic) {
+      if (methodType === 'static') {
         res = await wallet.call(txData)
+      } else if (methodType === 'populate') {
+        res = await wallet.populateTransaction(txData)
+      } else if (methodType === 'estimate') {
+        res = await wallet.estimateGas(txData)
       } else {
         res = await wallet.sendTransaction(txData)
       }
@@ -192,12 +201,47 @@ function CustomTx (props: any = {}) {
       </div>
       <textarea value={tx} onChange={handleChange} />
       <div>
-        <input
-          type='checkbox'
-          checked={callStatic}
-          onChange={updateCallStatic}
-        />
-        call static
+        <section>
+          <label>
+            <input
+              type='radio'
+              value='broadcast'
+              checked={methodType === 'broadcast'}
+              onChange={updateMethodType}
+            />
+            broadcast
+          </label>
+
+          <label>
+            <input
+              type='radio'
+              value='static'
+              checked={methodType === 'static'}
+              onChange={updateMethodType}
+            />
+            call static
+          </label>
+
+          <label>
+            <input
+              type='radio'
+              value='populate'
+              checked={methodType === 'populate'}
+              onChange={updateMethodType}
+            />
+            populate call
+          </label>
+
+          <label>
+            <input
+              type='radio'
+              value='estimate'
+              checked={methodType === 'estimate'}
+              onChange={updateMethodType}
+            />
+            estimate gas
+          </label>
+        </section>
       </div>
       <div>
         <button onClick={send}>send</button>
