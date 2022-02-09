@@ -11,8 +11,13 @@ import {
 // @ts-ignore
 import etherConverter from 'ether-converter'
 import nativeAbis from './abi'
+import CID from 'cids'
+
+const bs58 = require('bs58') // TODO: types
+const contentHash = require('content-hash') // TODO: types
 ;(window as any).BigNumber = BigNumber
 ;(window as any).ethers = ethers
+;(window as any).CID = CID
 
 const networkOptions = [
   'mainnet',
@@ -944,6 +949,216 @@ function ClearLocalStorage () {
   )
 }
 
+function EnsCoder (props: any) {
+  const [value, setValue] = useState<string>(
+    localStorage.getItem('namehashValue' || '') || ''
+  )
+  const [result, setResult] = useState<string | null>(null)
+  useEffect(() => {
+    localStorage.setItem('namehashValue', value || '')
+  }, [value])
+  const handleValueChange = (_value: string) => {
+    setValue(_value)
+  }
+  const encode = () => {
+    try {
+      setResult(null)
+      setResult(utils.namehash(value))
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    encode()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>ENS namehash</label>
+        <TextInput
+          value={value}
+          onChange={handleValueChange}
+          placeholder='vitalik.eth'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>encode</button>
+        </div>
+      </form>
+      <div>{result !== null && <pre>{result}</pre>}</div>
+    </div>
+  )
+}
+
+function IpfsCoder (props: any) {
+  const [v1Value, setV1Value] = useState<string>(
+    localStorage.getItem('ipfsV1Value' || '') || ''
+  )
+  const [v0Value, setV0Value] = useState<string>(
+    localStorage.getItem('ipfsV0Value' || '') || ''
+  )
+  const [result, setResult] = useState<string | null>(null)
+  useEffect(() => {
+    localStorage.setItem('ipfsV1Value', v1Value || '')
+  }, [v1Value])
+  useEffect(() => {
+    localStorage.setItem('ipfsV0Value', v0Value || '')
+  }, [v0Value])
+  const handleV1ValueChange = (_value: string = '') => {
+    setV1Value(_value)
+  }
+  const handleV0ValueChange = (_value: string = '') => {
+    setV0Value(_value)
+  }
+  const toV1 = () => {
+    try {
+      setResult(null)
+      setResult(new CID(v0Value).toV1().toString('base16'))
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const toV0 = () => {
+    try {
+      setResult(null)
+      setResult(new CID(v1Value).toV0().toString())
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleV0Submit = (event: any) => {
+    event.preventDefault()
+    toV0()
+  }
+  const handleV1Submit = (event: any) => {
+    event.preventDefault()
+    toV1()
+  }
+  return (
+    <div>
+      <form onSubmit={handleV1Submit}>
+        <label>To V1</label>
+        <TextInput
+          value={v0Value}
+          onChange={handleV0ValueChange}
+          placeholder='QmZ4tDuvesekSs4qM5ZBKpXiZGun7S2CYtEZRB3DYXkjGx'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>convert</button>
+        </div>
+      </form>
+      <form onSubmit={handleV0Submit}>
+        <label>To V0</label>
+        <TextInput
+          value={v1Value}
+          onChange={handleV1ValueChange}
+          placeholder='f017012209f668b20cfd24cdbf9e1980fa4867d08c67d2caf8499e6df81b9bf0b1c97287d'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>convert</button>
+        </div>
+      </form>
+      <div>{result !== null && <pre>{result}</pre>}</div>
+    </div>
+  )
+}
+
+function ContentHashCoder (props: any) {
+  const [encodeValue, setEncodeValue] = useState<string>(
+    localStorage.getItem('contentHashEncodeValue' || '') || ''
+  )
+  const [decodeValue, setDecodeValue] = useState<string>(
+    localStorage.getItem('contentHashDecodeValue' || '') || ''
+  )
+  const [result, setResult] = useState<string | null>(null)
+  useEffect(() => {
+    localStorage.setItem('contentHashEncodeValue', encodeValue || '')
+  }, [encodeValue])
+  useEffect(() => {
+    localStorage.setItem('contentHashDecodeValue', decodeValue || '')
+  }, [decodeValue])
+  const handleEncodeValueChange = (_value: string = '') => {
+    setEncodeValue(_value)
+  }
+  const handleDecodeValueChange = (_value: string = '') => {
+    setDecodeValue(_value)
+  }
+  const encode = () => {
+    try {
+      setResult(null)
+      const matched =
+        encodeValue.match(/^(ipfs-ns|ipfs|ipns|bzz|onion|onion3):\/\/(.*)/) ||
+        encodeValue.match(/\/(ipfs)\/(.*)/) ||
+        encodeValue.match(/\/(ipns)\/(.*)/)
+      if (!matched) {
+        throw new Error('could not encode')
+      }
+
+      const contentType = matched[1]
+      const content = matched[2]
+      let bs58content = content
+      if (!content.startsWith('Qm')) {
+        bs58content = bs58.encode(
+          Buffer.concat([
+            Buffer.from([0, content.length]),
+            Buffer.from(content)
+          ])
+        )
+      }
+      const ensContentHash = '0x' + contentHash.encode(contentType, bs58content)
+      setResult(ensContentHash)
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const decode = () => {
+    try {
+      setResult(null)
+      const _value = decodeValue.replace('0x', '')
+      setResult(
+        `${contentHash.getCodec(_value)}://${contentHash.decode(_value)}`
+      )
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleEncodeSubmit = (event: any) => {
+    event.preventDefault()
+    encode()
+  }
+  const handleDecodeSubmit = (event: any) => {
+    event.preventDefault()
+    decode()
+  }
+  return (
+    <div>
+      <form onSubmit={handleEncodeSubmit}>
+        <label>Encode</label>
+        <TextInput
+          value={encodeValue}
+          onChange={handleEncodeValueChange}
+          placeholder='ipfs-ns://QmZ4tDuvesekSs4qM5ZBKpXiZGun7S2CYtEZRB3DYXkjGx'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>encode</button>
+        </div>
+      </form>
+      <form onSubmit={handleDecodeSubmit}>
+        <label>Decode</label>
+        <TextInput
+          value={decodeValue}
+          onChange={handleDecodeValueChange}
+          placeholder='0xe301017012209f668b20cfd24cdbf9e1980fa4867d08c67d2caf8499e6df81b9bf0b1c97287d'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>decode</button>
+        </div>
+      </form>
+      <div>{result !== null && <pre>{result}</pre>}</div>
+    </div>
+  )
+}
+
 function App () {
   const [useWeb3, setUseWeb3] = useState<boolean>(() => {
     const cached = localStorage.getItem('useWeb3')
@@ -1443,6 +1658,21 @@ function App () {
       <Fieldset legend='Hex coder'>
         <section>
           <HexCoder />
+        </section>
+      </Fieldset>
+      <Fieldset legend='ENS coder'>
+        <section>
+          <EnsCoder />
+        </section>
+      </Fieldset>
+      <Fieldset legend='IPFS coder'>
+        <section>
+          <IpfsCoder />
+        </section>
+      </Fieldset>
+      <Fieldset legend='ContentHash coder'>
+        <section>
+          <ContentHashCoder />
         </section>
       </Fieldset>
       <Fieldset legend='Clear'>
