@@ -25,6 +25,10 @@ const networkOptions = [
   'goerli',
   'rinkeby',
   'ropsten',
+  'polygon',
+  'xdai',
+  'arbitrum',
+  'optimism',
   'injected'
 ]
 
@@ -37,8 +41,25 @@ function intToHex (value: number) {
 }
 
 function getTxExplorerUrl (txHash: string, network: string) {
-  const subdomain = network === 'mainnet' ? '' : `${network}.`
-  return `https://${subdomain}etherscan.io/tx/${txHash}`
+  let baseUrl = ''
+  if (['mainnet', 'kovan', 'goerli', 'rinkeby', 'ropsten'].includes(network)) {
+    const subdomain = network === 'mainnet' ? '' : `${network}.`
+    baseUrl = `https://${subdomain}etherscan.io`
+  } else if (network === 'optimism') {
+    baseUrl = 'https://optimistic.etherscan.io'
+  } else if (network === 'arbitrum') {
+    baseUrl = 'https://arbiscan.io'
+  } else if (network === 'polygon') {
+    baseUrl = 'https://https://polygonscan.com'
+  } else if (network === 'xdai') {
+    baseUrl = 'https://blockscout.com/xdai/mainnet'
+  } else if (network === 'avalance') {
+    baseUrl = 'https://snowtrace.io'
+  } else if (network === 'binance') {
+    baseUrl = 'https://bscscan.com'
+  }
+  const path = `/tx/${txHash}`
+  return `${baseUrl}${path}`
 }
 
 function Fieldset (props: any) {
@@ -839,6 +860,30 @@ function GetCode (props: any) {
   )
 }
 
+function GetFeeData (props: any) {
+  const { provider } = props
+  const [feeData, setFeeData] = useState<any>(null)
+  const getFeeData = async () => {
+    setFeeData(null)
+    const _feeData = await provider.getFeeData()
+    setFeeData(_feeData)
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    getFeeData()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>get fee data</button>
+        </div>
+      </form>
+      <div>{!!feeData && <pre>{JSON.stringify(feeData, null, 2)}</pre>}</div>
+    </div>
+  )
+}
+
 function GetNonce (props: any) {
   const { provider } = props
   const [address, setAddress] = useState(
@@ -1526,7 +1571,13 @@ function App () {
           <div>chain ID: {networkId}</div>
         </section>
         <section>
-          <label>RPC provider url</label>
+          <label>
+            RPC provider url{' '}
+            <small>
+              note: you can use "<code>{`{network}`}</code>" to replace network
+              name
+            </small>
+          </label>
           <TextInput
             value={rpcProviderUrl}
             onChange={handleRpcProviderUrlChange}
@@ -1638,6 +1689,11 @@ function App () {
       <Fieldset legend='Custom Transaction'>
         <section>
           <CustomTx wallet={wallet} network={networkName} />
+        </section>
+      </Fieldset>
+      <Fieldset legend='Get fee data'>
+        <section>
+          <GetFeeData provider={rpcProvider} />
         </section>
       </Fieldset>
       <Fieldset legend='Transaction Receipt'>
