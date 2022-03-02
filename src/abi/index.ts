@@ -12,6 +12,7 @@ import UniswapV3Factory from './UniswapV3Factory.json'
 import UniswapV3Pool from './UniswapV3Pool.json'
 import UniswapV3SwapRouter from './UniswapV3SwapRouter.json'
 import WETH from './WETH.json'
+import yVault from './yVault.json'
 
 const abis = {
   AuthereumAccount,
@@ -27,7 +28,8 @@ const abis = {
   UniswapV3Factory,
   UniswapV3Pool,
   UniswapV3SwapRouter,
-  WETH
+  WETH,
+  yVault
 }
 
 export default abis
