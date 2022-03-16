@@ -865,7 +865,7 @@ function TxReceipt (props: any) {
         <TextInput
           value={txHash}
           onChange={handleTxHashChange}
-          placeholder='Hash'
+          placeholder='hash'
         />
         <div style={{ marginTop: '0.5rem' }}>
           <button type='submit'>get receipt</button>
@@ -909,11 +909,11 @@ function GetBlock (props: any) {
   return (
     <div>
       <form onSubmit={handleSubmit}>
-        <label>Block number (optional)</label>
+        <label>Block number <small>(optional)</small></label>
         <TextInput
           value={blockNumber}
           onChange={handleBlockNumberChange}
-          placeholder='Hash'
+          placeholder='number'
         />
         <div style={{ marginTop: '0.5rem' }}>
           <button type='submit'>get block</button>
