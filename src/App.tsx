@@ -792,9 +792,13 @@ function TxReceipt (props: any) {
     setTxHash(value)
   }
   const getReceipt = async () => {
-    setReceipt(null)
-    const _receipt = await provider.getTransactionReceipt(txHash)
-    setReceipt(_receipt)
+    try {
+      setReceipt(null)
+      const _receipt = await provider.getTransactionReceipt(txHash)
+      setReceipt(_receipt)
+    } catch (err) {
+      alert(err.message)
+    }
   }
   const handleSubmit = (event: any) => {
     event.preventDefault()
@@ -812,6 +816,54 @@ function TxReceipt (props: any) {
         />
         <div style={{ marginTop: '0.5rem' }}>
           <button type='submit'>get receipt</button>
+        </div>
+      </form>
+      <div>
+        <pre>{result}</pre>
+      </div>
+    </div>
+  )
+}
+
+function GetBlock (props: any) {
+  const { provider } = props
+  const [blockNumber, setBlockNumber] = useState(
+    localStorage.getItem('blockNumber')
+  )
+  const [block, setBlock] = useState(null)
+  useEffect(() => {
+    localStorage.setItem('blockNumber', blockNumber || '')
+  }, [blockNumber])
+  const handleBlockNumberChange = (value: string) => {
+    setBlockNumber(value)
+  }
+  const getBlock = async () => {
+    try {
+      setBlock(null)
+      const _block = await provider.getBlock(
+        blockNumber ? Number(blockNumber) : undefined
+      )
+      setBlock(_block)
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    getBlock()
+  }
+  const result = JSON.stringify(block, null, 2)
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>Block number (optional)</label>
+        <TextInput
+          value={blockNumber}
+          onChange={handleBlockNumberChange}
+          placeholder='Hash'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>get block</button>
         </div>
       </form>
       <div>
@@ -1699,6 +1751,11 @@ function App () {
       <Fieldset legend='Transaction Receipt'>
         <section>
           <TxReceipt provider={rpcProvider} />
+        </section>
+      </Fieldset>
+      <Fieldset legend='Block'>
+        <section>
+          <GetBlock provider={rpcProvider} />
         </section>
       </Fieldset>
       <Fieldset legend='Get code'>
