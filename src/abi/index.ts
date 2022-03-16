@@ -1,4 +1,5 @@
 import AuthereumAccount from './AuthereumAccount.json'
+import BalancerVault from './BalancerVault.json'
 import EnsEthRegistrarController from './EnsEthRegistrarController.json'
 import EnsPublicResolver from './EnsPublicResolver.json'
 import ERC1271 from './ERC1271.json'
@@ -16,6 +17,7 @@ import yVault from './yVault.json'
 
 const abis = {
   AuthereumAccount,
+  BalancerVault,
   EnsEthRegistrarController,
   EnsPublicResolver,
   ERC1271,

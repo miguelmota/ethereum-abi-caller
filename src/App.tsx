@@ -10,6 +10,7 @@ import {
 } from 'ethers'
 // @ts-ignore
 import etherConverter from 'ether-converter'
+import InputDecoder from 'ethereum-input-data-decoder'
 import nativeAbis from './abi'
 import CID from 'cids'
 
@@ -666,6 +667,58 @@ function AbiEventForm (props: any = {}) {
       <div>
         <label>Signature</label>
         {abiObj.signature}
+      </div>
+    </div>
+  )
+}
+
+function DataDecoder (props: any) {
+  const { abi } = props
+  const [inputData, setInputData] = useState(
+    localStorage.getItem('decodeInputData') || ''
+  )
+  const [result, setResult] = useState<any>(null)
+  useEffect(() => {
+    localStorage.setItem('decodeInputData', inputData || '')
+  }, [inputData])
+  const decode = () => {
+    if (!(abi && abi.length)) {
+      throw new Error('abi required')
+    }
+    const decoder = new InputDecoder(abi)
+    const decoded = decoder.decodeData(inputData)
+    setResult(decoded)
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    try {
+      decode()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleInputDataChange = (value: string) => {
+    setInputData(value)
+  }
+
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label>Input data (hex)</label>
+          <TextInput
+            value={inputData}
+            onChange={handleInputDataChange}
+            placeholder='0x'
+            variant='textarea'
+          />
+        </div>
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>decode</button>
+        </div>
+      </form>
+      <div>
+        <pre>{result ? JSON.stringify(result, null, 2) : ''}</pre>
       </div>
     </div>
   )
@@ -1716,6 +1769,11 @@ function App () {
           )}
         </section>
       </Fieldset>
+      <Fieldset legend='Data decoder'>
+        <section>
+          <DataDecoder abi={abi} />
+        </section>
+      </Fieldset>
       <Fieldset legend='Method'>
         {!abiMethodFormShown && (
           <div style={{ marginBottom: '1rem' }}>{renderMethodSelect()}</div>
@@ -1738,7 +1796,7 @@ function App () {
           <UnitConverter />
         </section>
       </Fieldset>
-      <Fieldset legend='Custom Transaction'>
+      <Fieldset legend='Custom transaction'>
         <section>
           <CustomTx wallet={wallet} network={networkName} />
         </section>
