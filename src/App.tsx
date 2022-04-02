@@ -126,7 +126,7 @@ function UnitConverter () {
         return (
           <div key={unit}>
             <label>
-              {unit} ({exp})
+              {unit} ({exp}) {unit === 'gwei' && <small>(gas)</small>}
             </label>
             <div style={{ display: 'flex' }}>
               <div style={{ width: '100%' }}>
@@ -909,7 +909,9 @@ function GetBlock (props: any) {
   return (
     <div>
       <form onSubmit={handleSubmit}>
-        <label>Block number <small>(optional)</small></label>
+        <label>
+          Block number <small>(optional)</small>
+        </label>
         <TextInput
           value={blockNumber}
           onChange={handleBlockNumberChange}
@@ -1079,6 +1081,85 @@ function HexCoder (props: any) {
   )
 }
 
+function Base58Coder (props: any) {
+  const [encodeValue, setEncodeValue] = useState(
+    localStorage.getItem('base58EncodeValue' || '')
+  )
+  const [decodeValue, setDecodeValue] = useState(
+    localStorage.getItem('base58DecodeValue' || '')
+  )
+  const [result, setResult] = useState<string | null>(null)
+  useEffect(() => {
+    localStorage.setItem('base58EncodeValue', encodeValue || '')
+  }, [encodeValue])
+  useEffect(() => {
+    localStorage.setItem('base58DecodeValue', decodeValue || '')
+  }, [decodeValue])
+  const handleEncodeValueChange = (_value: string) => {
+    setEncodeValue(_value)
+  }
+  const handleDecodeValueChange = (_value: string) => {
+    setDecodeValue(_value)
+  }
+  const encode = () => {
+    try {
+      setResult(null)
+      let buf = Buffer.from(encodeValue || '')
+      if (encodeValue?.startsWith('0x')) {
+        buf = Buffer.from(encodeValue.replace(/^0x/, ''), 'hex')
+      }
+      const bs58content = bs58.encode(buf)
+      setResult(bs58content)
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const decode = () => {
+    try {
+      setResult(null)
+      const bs58content = bs58.decode(decodeValue)
+      setResult(Buffer.from(bs58content).toString())
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleEncodeSubmit = (event: any) => {
+    event.preventDefault()
+    encode()
+  }
+  const handleDecodeSubmit = (event: any) => {
+    event.preventDefault()
+    decode()
+  }
+  return (
+    <div>
+      <form onSubmit={handleEncodeSubmit}>
+        <label>Encode value</label>
+        <TextInput
+          value={encodeValue}
+          onChange={handleEncodeValueChange}
+          placeholder='example.com'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>encode</button>
+        </div>
+      </form>
+      <form onSubmit={handleDecodeSubmit}>
+        <label>Decode value</label>
+        <TextInput
+          value={decodeValue}
+          onChange={handleDecodeValueChange}
+          placeholder='SAQDNQ7MfCiLqDE'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>decode</button>
+        </div>
+      </form>
+      <div>{result !== null && <pre>{result}</pre>}</div>
+    </div>
+  )
+}
+
 function ClearLocalStorage () {
   const handleSubmit = (event: any) => {
     event.preventDefault()
@@ -1130,6 +1211,53 @@ function EnsCoder (props: any) {
           value={value}
           onChange={handleValueChange}
           placeholder='vitalik.eth'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>encode</button>
+        </div>
+      </form>
+      <div>{result !== null && <pre>{result}</pre>}</div>
+    </div>
+  )
+}
+
+function IPNSContentHash (props: any) {
+  const [value, setValue] = useState<string>(
+    localStorage.getItem('ipnsContentHashValue' || '') || ''
+  )
+  const [result, setResult] = useState<string | null>(null)
+  useEffect(() => {
+    localStorage.setItem('ipnsContentHashValue', value || '')
+  }, [value])
+  const handleValueChange = (_value: string) => {
+    setValue(_value)
+  }
+  const encode = () => {
+    try {
+      setResult(null)
+      if (value) {
+        const bs58content = bs58.encode(
+          Buffer.concat([Buffer.from([0, value.length]), Buffer.from(value)])
+        )
+        const ensContentHash = '0x' + contentHash.encode('ipns-ns', bs58content)
+        setResult(ensContentHash)
+      }
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    encode()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>IPNS ContentHash</label>
+        <TextInput
+          value={value}
+          onChange={handleValueChange}
+          placeholder='app.example.com'
         />
         <div style={{ marginTop: '0.5rem' }}>
           <button type='submit'>encode</button>
@@ -1831,6 +1959,11 @@ function App () {
           <HexCoder />
         </section>
       </Fieldset>
+      <Fieldset legend='Base58 coder'>
+        <section>
+          <Base58Coder />
+        </section>
+      </Fieldset>
       <Fieldset legend='ENS coder'>
         <section>
           <EnsCoder />
@@ -1844,6 +1977,11 @@ function App () {
       <Fieldset legend='ContentHash coder'>
         <section>
           <ContentHashCoder />
+        </section>
+      </Fieldset>
+      <Fieldset legend='IPNS ContentHash'>
+        <section>
+          <IPNSContentHash />
         </section>
       </Fieldset>
       <Fieldset legend='Clear'>
