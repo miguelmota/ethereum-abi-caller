@@ -14,11 +14,16 @@ import InputDecoder from 'ethereum-input-data-decoder'
 import nativeAbis from './abi'
 import CID from 'cids'
 
-const bs58 = require('bs58') // TODO: types
+const base58 = require('bs58') // TODO: types
 const contentHash = require('content-hash') // TODO: types
+//const namehash = require('eth-ens-namehash') // namehash.hash(...)
+const contentHash2 = require('@ensdomains/content-hash')
 ;(window as any).BigNumber = BigNumber
 ;(window as any).ethers = ethers
 ;(window as any).CID = CID
+;(window as any).contentHash = contentHash
+;(window as any).base58 = base58
+;(window as any).contentHash2 = contentHash2
 
 const networkOptions = [
   'mainnet',
@@ -673,7 +678,7 @@ function AbiEventForm (props: any = {}) {
 }
 
 function DataDecoder (props: any) {
-  const { abi } = props
+  const { abi, abiName } = props
   const [inputData, setInputData] = useState(
     localStorage.getItem('decodeInputData') || ''
   )
@@ -705,6 +710,11 @@ function DataDecoder (props: any) {
     <div>
       <form onSubmit={handleSubmit}>
         <div>
+          <label>
+            Decode transaction calldata using <strong>{abiName}</strong> ABI
+          </label>
+        </div>
+        <div style={{ marginTop: '0.5rem' }}>
           <label>Input data (hex)</label>
           <TextInput
             value={inputData}
@@ -1108,8 +1118,8 @@ function Base58Coder (props: any) {
       if (encodeValue?.startsWith('0x')) {
         buf = Buffer.from(encodeValue.replace(/^0x/, ''), 'hex')
       }
-      const bs58content = bs58.encode(buf)
-      setResult(bs58content)
+      const base58content = base58.encode(buf)
+      setResult(base58content)
     } catch (err) {
       alert(err.message)
     }
@@ -1117,8 +1127,12 @@ function Base58Coder (props: any) {
   const decode = () => {
     try {
       setResult(null)
-      const bs58content = bs58.decode(decodeValue)
-      setResult(Buffer.from(bs58content).toString())
+      const base58content = base58.decode(decodeValue)
+      setResult(
+        `0x${Buffer.from(base58content).toString('hex')}\n${Buffer.from(
+          base58content
+        ).toString()}`
+      )
     } catch (err) {
       alert(err.message)
     }
@@ -1206,7 +1220,7 @@ function EnsCoder (props: any) {
   return (
     <div>
       <form onSubmit={handleSubmit}>
-        <label>ENS namehash</label>
+        <label>ENS namehash (returns node)</label>
         <TextInput
           value={value}
           onChange={handleValueChange}
@@ -1236,10 +1250,13 @@ function IPNSContentHash (props: any) {
     try {
       setResult(null)
       if (value) {
-        const bs58content = bs58.encode(
+        const base58content = base58.encode(
           Buffer.concat([Buffer.from([0, value.length]), Buffer.from(value)])
         )
-        const ensContentHash = '0x' + contentHash.encode('ipns-ns', bs58content)
+        const ensContentHash = `0x${contentHash.encode(
+          'ipns-ns',
+          base58content
+        )}`
         setResult(ensContentHash)
       }
     } catch (err) {
@@ -1341,7 +1358,12 @@ function IpfsCoder (props: any) {
   )
 }
 
+// more info: https://github.com/ensdomains/ens-app/issues/849#issuecomment-777088950
+// ens public resolver: 0x4976fb03C32e5B8cfe2b6cCB31c09Ba78EBaBa41
 function ContentHashCoder (props: any) {
+  const [shouldBase58EncodeContent, setShouldBase58EncodeContent] = useState<
+    boolean
+  >(false)
   const [encodeValue, setEncodeValue] = useState<string>(
     localStorage.getItem('contentHashEncodeValue' || '') || ''
   )
@@ -1365,25 +1387,38 @@ function ContentHashCoder (props: any) {
     try {
       setResult(null)
       const matched =
-        encodeValue.match(/^(ipfs-ns|ipfs|ipns|bzz|onion|onion3):\/\/(.*)/) ||
+        encodeValue.match(
+          /^(ipfs-ns|ipfs|ipns|ipns-ns|bzz|onion|onion3):\/\/(.*)/
+        ) ||
         encodeValue.match(/\/(ipfs)\/(.*)/) ||
         encodeValue.match(/\/(ipns)\/(.*)/)
       if (!matched) {
-        throw new Error('could not encode')
+        throw new Error('could not encode (missing protocol)')
       }
 
       const contentType = matched[1]
       const content = matched[2]
-      let bs58content = content
-      if (!content.startsWith('Qm')) {
-        bs58content = bs58.encode(
+      let base58content = content
+
+      if (shouldBase58EncodeContent) {
+        base58content = base58.encode(
           Buffer.concat([
             Buffer.from([0, content.length]),
             Buffer.from(content)
           ])
         )
       }
-      const ensContentHash = '0x' + contentHash.encode(contentType, bs58content)
+
+      console.log('contentType:', contentType)
+      console.log('base58Content:', base58content)
+
+      let ensContentHash = ''
+      if (shouldBase58EncodeContent) {
+        ensContentHash = contentHash.encode(contentType, base58content)
+      } else {
+        ensContentHash = contentHash2.encode(contentType, base58content)
+      }
+      ensContentHash = `0x${ensContentHash}`
       setResult(ensContentHash)
     } catch (err) {
       alert(err.message)
@@ -1394,7 +1429,7 @@ function ContentHashCoder (props: any) {
       setResult(null)
       const _value = decodeValue.replace('0x', '')
       setResult(
-        `${contentHash.getCodec(_value)}://${contentHash.decode(_value)}`
+        `${contentHash2.getCodec(_value)}://${contentHash2.decode(_value)}`
       )
     } catch (err) {
       alert(err.message)
@@ -1408,15 +1443,28 @@ function ContentHashCoder (props: any) {
     event.preventDefault()
     decode()
   }
+  const handleCheckboxChange = (event: any) => {
+    setShouldBase58EncodeContent(event.target.checked)
+  }
   return (
     <div>
       <form onSubmit={handleEncodeSubmit}>
-        <label>Encode</label>
+        <label>
+          Encode <small>(e.g. {`ipns-ns://<peer-id>`})</small>
+        </label>
         <TextInput
           value={encodeValue}
           onChange={handleEncodeValueChange}
           placeholder='ipfs-ns://QmZ4tDuvesekSs4qM5ZBKpXiZGun7S2CYtEZRB3DYXkjGx'
         />
+        <div style={{ marginTop: '0.5rem' }}>
+          <input
+            type='checkbox'
+            checked={shouldBase58EncodeContent}
+            onChange={handleCheckboxChange}
+          />
+          base58 encode content <small>(ie. using domain)</small>
+        </div>
         <div style={{ marginTop: '0.5rem' }}>
           <button type='submit'>encode</button>
         </div>
@@ -1897,11 +1945,6 @@ function App () {
           )}
         </section>
       </Fieldset>
-      <Fieldset legend='Data decoder'>
-        <section>
-          <DataDecoder abi={abi} />
-        </section>
-      </Fieldset>
       <Fieldset legend='Method'>
         {!abiMethodFormShown && (
           <div style={{ marginBottom: '1rem' }}>{renderMethodSelect()}</div>
@@ -1913,6 +1956,11 @@ function App () {
           <div style={{ marginBottom: '1rem' }}>{renderEventsSelect()}</div>
         )}
         {!abiMethodFormShown ? <section>{renderEventForm()}</section> : null}
+      </Fieldset>
+      <Fieldset legend='Data decoder'>
+        <section>
+          <DataDecoder abi={abi} abiName={selectedAbi} />
+        </section>
       </Fieldset>
       <Fieldset legend='Send ETH'>
         <section>
