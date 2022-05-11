@@ -1046,6 +1046,61 @@ function GetNonce (props: any) {
   )
 }
 
+function EnsAvatar (props: any) {
+  const { provider } = props
+  const [loading, setLoading] = useState<boolean>(false)
+  const [value, setValue] = useState<string>(
+    localStorage.getItem('ensAvatar' || '') || ''
+  )
+  const [result, setResult] = useState<string | null>(null)
+  useEffect(() => {
+    localStorage.setItem('ensAvatar', value || '')
+  }, [value])
+  const handleValueChange = (_value: string) => {
+    setValue(_value)
+  }
+  const encode = async () => {
+    try {
+      setResult(null)
+      setLoading(true)
+      let ensName = value
+      if (utils.isAddress(value)) {
+        ensName = await provider.lookupAddress(value)
+      }
+      const url = await provider.getAvatar(ensName)
+      setResult(url)
+    } catch (err) {
+      alert(err.message)
+    }
+    setLoading(false)
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    encode()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>ENS avatar (enter ens name or address)</label>
+        <TextInput
+          value={value}
+          onChange={handleValueChange}
+          placeholder='vitalik.eth'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>get avatar</button>
+        </div>
+      </form>
+      <div style={{ marginTop: '1rem' }}>
+        {loading && <span>Loading...</span>}
+        {!!result && (
+          <img src={result} alt='avatar' style={{ maxWidth: '200px' }} />
+        )}
+      </div>
+    </div>
+  )
+}
+
 function HexCoder (props: any) {
   const [value, setValue] = useState(
     localStorage.getItem('hexCoderValue' || '')
@@ -2000,6 +2055,11 @@ function App () {
       <Fieldset legend='Get nonce'>
         <section>
           <GetNonce provider={rpcProvider} />
+        </section>
+      </Fieldset>
+      <Fieldset legend='ENS avatar'>
+        <section>
+          <EnsAvatar provider={rpcProvider} />
         </section>
       </Fieldset>
       <Fieldset legend='Hex coder'>
