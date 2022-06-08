@@ -408,7 +408,22 @@ function AbiMethodForm (props: any = {}) {
       setError('')
       if (abiObj) {
         const iface = new utils.Interface([abiObj])
-        const data = iface.encodeFunctionData(abiObj.name, Object.values(args))
+
+        const parsed = args
+        for (const key in parsed) {
+          const value = parsed[key]
+          try {
+            const p = JSON.parse(value)
+            if (Array.isArray(p)) {
+              parsed[key] = p
+            }
+          } catch (err) {}
+        }
+
+        const data = iface.encodeFunctionData(
+          abiObj.name,
+          Object.values(parsed)
+        )
         tx.data = data
       }
     } catch (err) {
@@ -430,6 +445,7 @@ function AbiMethodForm (props: any = {}) {
   if (abiObj.type !== 'function') {
     return null
   }
+
   const handleSubmit = async (event: any) => {
     event.preventDefault()
     try {
@@ -451,7 +467,7 @@ function AbiMethodForm (props: any = {}) {
 
       const contractArgs = Object.values(args).reduce(
         (acc: any[], val: any, i: number) => {
-          if (abiObj.inputs[i].type?.endsWith('[]')) {
+          if (abiObj.inputs[i].type?.endsWith('[]') && typeof val == 'string') {
             val = val.split(',').map((x: string) => x.trim())
           }
           acc.push(val)
@@ -524,6 +540,12 @@ function AbiMethodForm (props: any = {}) {
               alert(err)
             }
           }
+          let inputValue = args[i]
+          if (Array.isArray(inputValue)) {
+            try {
+              inputValue = JSON.stringify(inputValue)
+            } catch (err) {}
+          }
           return (
             <div key={i}>
               <label>
@@ -547,13 +569,20 @@ function AbiMethodForm (props: any = {}) {
                 ) : null}
                 {input.type?.startsWith('bytes') ? (
                   <>
-                    <span>(must be hex) </span>
+                    <span>
+                      (
+                      {input.type?.includes('[]')
+                        ? 'must be array of hex'
+                        : 'must be hex'}
+                      )
+                    </span>
+                    &nbsp;
                     <button onClick={convertTextToHex}>hexlify</button>
                   </>
                 ) : null}
               </label>
               <TextInput
-                value={args[i]}
+                value={inputValue}
                 placeholder={input.type}
                 onChange={(val: string) => {
                   val = val.trim()

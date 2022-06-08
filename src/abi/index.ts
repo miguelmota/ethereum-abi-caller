@@ -2,6 +2,7 @@ import AuthereumAccount from './AuthereumAccount.json'
 import BalancerVault from './BalancerVault.json'
 import EnsEthRegistrarController from './EnsEthRegistrarController.json'
 import EnsPublicResolver from './EnsPublicResolver.json'
+import EnsToken from './EnsToken.json'
 import ERC1271 from './ERC1271.json'
 import ERC20 from './ERC20.json'
 import ERC721 from './ERC721.json'
@@ -20,6 +21,7 @@ const abis = {
   BalancerVault,
   EnsEthRegistrarController,
   EnsPublicResolver,
+  EnsToken,
   ERC1271,
   ERC20,
   ERC721,
