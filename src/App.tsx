@@ -372,7 +372,12 @@ function AbiMethodForm (props: any = {}) {
   })
   const [error, setError] = useState<string>('')
   const [result, setResult] = useState('')
-  const [callStatic, setCallStatic] = useState<boolean>(false)
+  const [callStatic, setCallStatic] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('callStatic') === 'true'
+    } catch (err) {}
+    return false
+  })
   const [txhash, setTxhash] = useState<any>(null)
   const [tx, setTx] = useState<any>(null)
   const abiObj = props.abi
@@ -508,7 +513,9 @@ function AbiMethodForm (props: any = {}) {
     localStorage.setItem('nonce', val)
   }
   const updateCallStatic = (event: any) => {
-    setCallStatic(event.target.checked)
+    const { checked } = event.target
+    setCallStatic(checked)
+    localStorage.setItem('callStatic', checked)
   }
 
   const txLink = txhash ? getTxExplorerUrl(txhash, props.network) : null
