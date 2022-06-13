@@ -14,6 +14,9 @@ import InputDecoder from 'ethereum-input-data-decoder'
 import nativeAbis from './abi'
 import CID from 'cids'
 
+const privateKeyToAddress = require('ethereum-private-key-to-address')
+const privateKeyToPublicKey = require('ethereum-private-key-to-public-key')
+const publicKeyToAddress = require('ethereum-public-key-to-address')
 const base58 = require('bs58') // TODO: types
 const contentHash = require('content-hash') // TODO: types
 //const namehash = require('eth-ens-namehash') // namehash.hash(...)
@@ -327,7 +330,7 @@ function TextInput (props: any = {}) {
         readOnly={props.readOnly}
         disabled={props.disabled}
         placeholder={props.placeholder}
-        value={value}
+        value={value || ''}
         onChange={handleChange}
       />
     )
@@ -338,7 +341,7 @@ function TextInput (props: any = {}) {
         disabled={props.disabled}
         placeholder={props.placeholder}
         type='text'
-        value={value}
+        value={value || ''}
         onChange={handleChange}
       />
     )
@@ -383,7 +386,9 @@ function AbiMethodForm (props: any = {}) {
   const abiObj = props.abi
   const windowWeb3 = (window as any).ethereum
   const provider = useMemo(() => {
-    return new providers.Web3Provider(windowWeb3, 'any')
+    if (windowWeb3) {
+      return new providers.Web3Provider(windowWeb3, 'any')
+    }
   }, [windowWeb3])
   useEffect(() => {
     const update = async () => {
@@ -647,7 +652,7 @@ function AbiMethodForm (props: any = {}) {
             <ol>
               {abiObj?.outputs?.map((obj: any) => {
                 return (
-                  <li>
+                  <li key={obj.name}>
                     {obj.name} ({obj.type})
                   </li>
                 )
@@ -698,7 +703,7 @@ function AbiEventForm (props: any = {}) {
       <ol>
         {inputs.map((input: any, i: number) => {
           return (
-            <li>
+            <li key={i}>
               <strong>{input.name}</strong> ({input.type}){' '}
               {input.indexed ? `(indexed)` : null}
             </li>
@@ -1576,6 +1581,184 @@ function ContentHashCoder (props: any) {
   )
 }
 
+function ChecksumAddress (props: any) {
+  const [value, setValue] = useState<string>(
+    localStorage.getItem('checksumAddressValue' || '') || ''
+  )
+  const [result, setResult] = useState<string | null>(null)
+  useEffect(() => {
+    localStorage.setItem('checksumAddressValue', value || '')
+  }, [value])
+  const handleValueChange = (_value: string) => {
+    setValue(_value)
+  }
+  const checksum = () => {
+    try {
+      setResult(null)
+      if (!value) {
+        return
+      }
+      setResult(utils.getAddress(value.trim()))
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    checksum()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>Checksum Address</label>
+        <TextInput
+          value={value}
+          onChange={handleValueChange}
+          placeholder='0x...'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>checksum</button>
+        </div>
+      </form>
+      <div>{result}</div>
+    </div>
+  )
+}
+
+function PrivateKeyToAddress (props: any) {
+  const [value, setValue] = useState<string>(
+    localStorage.getItem('privateKeyToAddressValue' || '') || ''
+  )
+  const [result, setResult] = useState<string | null>(null)
+  useEffect(() => {
+    localStorage.setItem('privateKeyToAddressValue', value || '')
+  }, [value])
+  const handleValueChange = (_value: string) => {
+    setValue(_value)
+  }
+  const update = () => {
+    try {
+      setResult(null)
+      if (!value) {
+        return
+      }
+      setResult(privateKeyToAddress(value.trim().replace('0x', '')))
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    update()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>Private Key to Address</label>
+        <TextInput
+          value={value}
+          onChange={handleValueChange}
+          placeholder='0x...'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>get address</button>
+        </div>
+      </form>
+      <div>{result}</div>
+    </div>
+  )
+}
+
+function PrivateKeyToPublicKey (props: any) {
+  const [value, setValue] = useState<string>(
+    localStorage.getItem('privateKeyToPublicKeyValue' || '') || ''
+  )
+  const [result, setResult] = useState<string | null>(null)
+  useEffect(() => {
+    localStorage.setItem('privateKeyToPublicKeyValue', value || '')
+  }, [value])
+  const handleValueChange = (_value: string) => {
+    setValue(_value)
+  }
+  const update = () => {
+    try {
+      setResult(null)
+      if (!value) {
+        return
+      }
+      setResult(
+        privateKeyToPublicKey(value.trim().replace('0x', '')).toString('hex')
+      )
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    update()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>Private Key to Public Key</label>
+        <TextInput
+          value={value}
+          onChange={handleValueChange}
+          placeholder='0x...'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>get public key</button>
+        </div>
+      </form>
+      <div style={{ wordBreak: 'break-all' }}>{result}</div>
+    </div>
+  )
+}
+
+function PublicKeyToAddress (props: any) {
+  const [value, setValue] = useState<string>(
+    localStorage.getItem('publicKeyToAddressValue' || '') || ''
+  )
+  const [result, setResult] = useState<string | null>(null)
+  useEffect(() => {
+    localStorage.setItem('publicKeyToAddressValue', value || '')
+  }, [value])
+  const handleValueChange = (_value: string) => {
+    setValue(_value)
+  }
+  const update = () => {
+    try {
+      setResult(null)
+      if (!value) {
+        return
+      }
+      setResult(publicKeyToAddress(value.trim().replace('0x', '')))
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    update()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>Public Key to Address</label>
+        <TextInput
+          value={value}
+          onChange={handleValueChange}
+          placeholder='0x...'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>get address</button>
+        </div>
+      </form>
+      <div>{result}</div>
+    </div>
+  )
+}
+
 function App () {
   const [useWeb3, setUseWeb3] = useState<boolean>(() => {
     const cached = localStorage.getItem('useWeb3')
@@ -1602,7 +1785,7 @@ function App () {
       return new providers.StaticJsonRpcProvider(url.replace('{network}', net))
     }
 
-    if (net === 'injected') {
+    if (net === 'injected' && (window as any).ethereum) {
       return new providers.Web3Provider((window as any).ethereum, 'any')
     }
 
@@ -1650,12 +1833,14 @@ function App () {
     string[] | undefined
   >()
   useEffect(() => {
-    ;(window as any).ethereum.on('chainChanged', (chainId: string) => {
-      setConnectedChainId(chainId)
-    })
-    ;(window as any).ethereum.on('accountsChanged', (accounts: string[]) => {
-      setConnectedAccounts(accounts)
-    })
+    if ((window as any).ethereum) {
+      ;(window as any).ethereum.on('chainChanged', (chainId: string) => {
+        setConnectedChainId(chainId)
+      })
+      ;(window as any).ethereum.on('accountsChanged', (accounts: string[]) => {
+        setConnectedAccounts(accounts)
+      })
+    }
   }, [])
   useEffect(() => {
     ;(window as any).provider = rpcProvider
@@ -2126,6 +2311,26 @@ function App () {
       <Fieldset legend='IPNS ContentHash'>
         <section>
           <IPNSContentHash />
+        </section>
+      </Fieldset>
+      <Fieldset legend='Checksum Address'>
+        <section>
+          <ChecksumAddress />
+        </section>
+      </Fieldset>
+      <Fieldset legend='Private Key to Address'>
+        <section>
+          <PrivateKeyToAddress />
+        </section>
+      </Fieldset>
+      <Fieldset legend='Private Key to Public Key'>
+        <section>
+          <PrivateKeyToPublicKey />
+        </section>
+      </Fieldset>
+      <Fieldset legend='Public Key to Address'>
+        <section>
+          <PublicKeyToAddress />
         </section>
       </Fieldset>
       <Fieldset legend='Clear'>
