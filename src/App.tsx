@@ -29,6 +29,7 @@ const contentHash2 = require('@ensdomains/content-hash')
 ;(window as any).contentHash2 = contentHash2
 
 const networkOptions = [
+  'injected',
   'mainnet',
   'kovan',
   'goerli',
@@ -37,8 +38,7 @@ const networkOptions = [
   'polygon',
   'xdai',
   'arbitrum',
-  'optimism',
-  'injected'
+  'optimism'
 ]
 
 function intToHex (value: number) {
@@ -1610,7 +1610,7 @@ function ChecksumAddress (props: any) {
   return (
     <div>
       <form onSubmit={handleSubmit}>
-        <label>Checksum Address</label>
+        <label>Address</label>
         <TextInput
           value={value}
           onChange={handleValueChange}
@@ -1654,7 +1654,7 @@ function PrivateKeyToAddress (props: any) {
   return (
     <div>
       <form onSubmit={handleSubmit}>
-        <label>Private Key to Address</label>
+        <label>Private key</label>
         <TextInput
           value={value}
           onChange={handleValueChange}
@@ -1700,7 +1700,7 @@ function PrivateKeyToPublicKey (props: any) {
   return (
     <div>
       <form onSubmit={handleSubmit}>
-        <label>Private Key to Public Key</label>
+        <label>Private key</label>
         <TextInput
           value={value}
           onChange={handleValueChange}
@@ -1744,7 +1744,7 @@ function PublicKeyToAddress (props: any) {
   return (
     <div>
       <form onSubmit={handleSubmit}>
-        <label>Public Key to Address</label>
+        <label>Public key</label>
         <TextInput
           value={value}
           onChange={handleValueChange}
@@ -1755,6 +1755,75 @@ function PublicKeyToAddress (props: any) {
         </div>
       </form>
       <div>{result}</div>
+    </div>
+  )
+}
+
+function BatchBalanceChecker (props: any) {
+  const { provider } = props
+  const [value, setValue] = useState<string>(
+    localStorage.getItem('batchBalanceCheckerValue' || '') || ''
+  )
+  const [result, setResult] = useState<string[]>([])
+  useEffect(() => {
+    localStorage.setItem('batchBalanceCheckerValue', value || '')
+  }, [value])
+  const handleValueChange = (_value: string) => {
+    setValue(_value)
+  }
+  const update = async () => {
+    try {
+      setResult([])
+      if (!value) {
+        return
+      }
+      const addresses = value
+        .trim()
+        .split('\n')
+        .map((addr: string) => {
+          return addr.trim()
+        })
+      const _result: string[] = []
+      let total = BigNumber.from(0)
+      for (const address of addresses) {
+        const balance = await provider.getBalance(address)
+        const output = `${address} ${utils.formatEther(balance)} ETH`
+        total = total.add(balance)
+        _result.push(output)
+        setResult([..._result])
+      }
+      const { chainId, name } = await provider.getNetwork()
+      const chainLabel =
+        name !== 'unknown' ? `${name} ${chainId}` : `${chainId}`
+      _result.push(
+        `total: ${utils.formatEther(total)} ETH (chain ${chainLabel})`
+      )
+      setResult([..._result])
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    update()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>List of addresses</label>
+        <TextInput
+          variant='textarea'
+          value={value}
+          onChange={handleValueChange}
+          placeholder='0x...'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>get balances</button>
+        </div>
+      </form>
+      <div>
+        <pre>{result.join('\n')}</pre>
+      </div>
     </div>
   )
 }
@@ -1779,17 +1848,25 @@ function App () {
     return localStorage.getItem('rpcProviderUrl') || ''
   })
   const [rpcProvider, setRpcProvider] = useState<any>(() => {
-    const net = localStorage.getItem('networkOption') || 'mainnet'
-    const url = localStorage.getItem('rpcProviderUrl')
-    if (url) {
-      return new providers.StaticJsonRpcProvider(url.replace('{network}', net))
+    try {
+      const net = localStorage.getItem('networkOption') || 'mainnet'
+      const url = localStorage.getItem('rpcProviderUrl')
+      if (url) {
+        return new providers.StaticJsonRpcProvider(
+          url.replace('{network}', net)
+        )
+      }
+
+      if (net === 'injected' && (window as any).ethereum) {
+        return new providers.Web3Provider((window as any).ethereum, 'any')
+      }
+
+      return providers.getDefaultProvider(net)
+    } catch (err) {
+      console.error(err)
     }
 
-    if (net === 'injected' && (window as any).ethereum) {
-      return new providers.Web3Provider((window as any).ethereum, 'any')
-    }
-
-    return providers.getDefaultProvider(net)
+    return providers.getDefaultProvider('mainnet')
   })
   const [wallet, setWallet] = useState<any>(rpcProvider)
   const [walletAddress, setWalletAddress] = useState<string>('')
@@ -2331,6 +2408,11 @@ function App () {
       <Fieldset legend='Public Key to Address'>
         <section>
           <PublicKeyToAddress />
+        </section>
+      </Fieldset>
+      <Fieldset legend='Batch Balance Checker'>
+        <section>
+          <BatchBalanceChecker provider={rpcProvider} />
         </section>
       </Fieldset>
       <Fieldset legend='Clear'>
