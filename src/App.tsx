@@ -9,11 +9,12 @@ import {
   utils
 } from 'ethers'
 // @ts-ignore
-import etherConverter from 'ether-converter'
 import InputDecoder from 'ethereum-input-data-decoder'
 import nativeAbis from './abi'
 import CID from 'cids'
 
+const zksync = require('zksync')
+const etherConverter = require('ether-converter') // TODO: types
 const privateKeyToAddress = require('ethereum-private-key-to-address')
 const privateKeyToPublicKey = require('ethereum-private-key-to-public-key')
 const publicKeyToAddress = require('ethereum-public-key-to-address')
@@ -40,6 +41,15 @@ const networkOptions = [
   'arbitrum',
   'optimism'
 ]
+
+const tokenDecimals: any = {
+  ETH: 18,
+  WETH: 18,
+  wstEth: 18,
+  stEth: 18,
+  USDC: 6,
+  DAI: 18
+}
 
 function intToHex (value: number) {
   try {
@@ -1902,7 +1912,7 @@ function BatchTokenBalanceChecker (props: any) {
   return (
     <div>
       <form onSubmit={handleSubmit}>
-        <div>
+        <div style={{ marginBottom: '0.5rem' }}>
           <label>Token address</label>
           <TextInput
             value={tokenAddress}
@@ -1910,6 +1920,81 @@ function BatchTokenBalanceChecker (props: any) {
             placeholder='0x...'
           />
         </div>
+        <label>List of addresses</label>
+        <TextInput
+          variant='textarea'
+          value={value}
+          onChange={handleValueChange}
+          placeholder='0x...'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>get balances</button>
+        </div>
+      </form>
+      <div>
+        <pre>{result.join('\n')}</pre>
+      </div>
+    </div>
+  )
+}
+
+function ZkSyncBalanceChecker (props: any) {
+  const [value, setValue] = useState<string>(
+    localStorage.getItem('batchZkSyncBalanceCheckerValue' || '') || ''
+  )
+  const [result, setResult] = useState<string[]>([])
+  useEffect(() => {
+    localStorage.setItem('batchZkSyncBalanceCheckerValue', value || '')
+  }, [value])
+  const handleValueChange = (_value: string) => {
+    setValue(_value)
+  }
+  const update = async () => {
+    try {
+      setResult([])
+      if (!value) {
+        return
+      }
+      const syncProvider = await zksync.getDefaultProvider('mainnet')
+      const addresses = value
+        .trim()
+        .split('\n')
+        .map((addr: string) => {
+          return addr.trim()
+        })
+      const _result: string[] = []
+      for (const address of addresses) {
+        const state = await syncProvider.getState(address)
+        const balances = state.verified.balances
+        const formatted: any = {}
+        for (const token in balances) {
+          if (tokenDecimals[token]) {
+            formatted[token] = utils.formatUnits(
+              balances[token],
+              tokenDecimals[token]
+            )
+          } else {
+            formatted[token] = `${balances[token]} (unformatted)`
+          }
+        }
+        const output = `${address} ${JSON.stringify(formatted)}`
+        _result.push(output)
+        setResult([..._result])
+      }
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    update()
+  }
+  return (
+    <div>
+      <div style={{ marginBottom: '0.5rem' }}>
+        <label>mainnet only</label>
+      </div>
+      <form onSubmit={handleSubmit}>
         <label>List of addresses</label>
         <TextInput
           variant='textarea'
@@ -2518,6 +2603,11 @@ function App () {
       <Fieldset legend='Batch Token Balance Checker'>
         <section>
           <BatchTokenBalanceChecker provider={rpcProvider} />
+        </section>
+      </Fieldset>
+      <Fieldset legend='ZkSync Balance Checker'>
+        <section>
+          <ZkSyncBalanceChecker />
         </section>
       </Fieldset>
       <Fieldset legend='Clear'>
