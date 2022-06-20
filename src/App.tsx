@@ -1759,14 +1759,14 @@ function PublicKeyToAddress (props: any) {
   )
 }
 
-function BatchBalanceChecker (props: any) {
+function BatchEthBalanceChecker (props: any) {
   const { provider } = props
   const [value, setValue] = useState<string>(
-    localStorage.getItem('batchBalanceCheckerValue' || '') || ''
+    localStorage.getItem('batchEthBalanceCheckerValue' || '') || ''
   )
   const [result, setResult] = useState<string[]>([])
   useEffect(() => {
-    localStorage.setItem('batchBalanceCheckerValue', value || '')
+    localStorage.setItem('batchEthBalanceCheckerValue', value || '')
   }, [value])
   const handleValueChange = (_value: string) => {
     setValue(_value)
@@ -1810,6 +1810,106 @@ function BatchBalanceChecker (props: any) {
   return (
     <div>
       <form onSubmit={handleSubmit}>
+        <label>List of addresses</label>
+        <TextInput
+          variant='textarea'
+          value={value}
+          onChange={handleValueChange}
+          placeholder='0x...'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>get balances</button>
+        </div>
+      </form>
+      <div>
+        <pre>{result.join('\n')}</pre>
+      </div>
+    </div>
+  )
+}
+
+function BatchTokenBalanceChecker (props: any) {
+  const { provider } = props
+  const [value, setValue] = useState<string>(
+    localStorage.getItem('batchTokenBalanceCheckerValue' || '') || ''
+  )
+  const [tokenAddress, setTokenAddress] = useState<string>(
+    localStorage.getItem('batchTokenBalanceCheckerTokenAddress' || '') || ''
+  )
+  const [result, setResult] = useState<string[]>([])
+  useEffect(() => {
+    localStorage.setItem('batchTokenBalanceCheckerValue', value || '')
+  }, [value])
+  useEffect(() => {
+    localStorage.setItem(
+      'batchTokenBalanceCheckerTokenAddress',
+      tokenAddress || ''
+    )
+  }, [tokenAddress])
+  const handleValueChange = (_value: string) => {
+    setValue(_value)
+  }
+  const handleTokenAddressChange = (_value: string) => {
+    setTokenAddress(_value)
+  }
+  const update = async () => {
+    try {
+      setResult([])
+      if (!value) {
+        return
+      }
+      const contract = new Contract(tokenAddress, nativeAbis.ERC20, provider)
+      const [decimals, symbol] = await Promise.all([
+        contract.decimals(),
+        contract.symbol()
+      ])
+      const addresses = value
+        .trim()
+        .split('\n')
+        .map((addr: string) => {
+          return addr.trim()
+        })
+      const _result: string[] = []
+      let total = BigNumber.from(0)
+      for (const address of addresses) {
+        const balance = await contract.balanceOf(address)
+        const output = `${address} ${utils.formatUnits(
+          balance,
+          decimals
+        )} ${symbol}`
+        total = total.add(balance)
+        _result.push(output)
+        setResult([..._result])
+      }
+      const { chainId, name } = await provider.getNetwork()
+      const chainLabel =
+        name !== 'unknown' ? `${name} ${chainId}` : `${chainId}`
+      _result.push(
+        `total: ${utils.formatUnits(
+          total,
+          decimals
+        )} ${symbol} (chain ${chainLabel})`
+      )
+      setResult([..._result])
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    update()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label>Token address</label>
+          <TextInput
+            value={tokenAddress}
+            onChange={handleTokenAddressChange}
+            placeholder='0x...'
+          />
+        </div>
         <label>List of addresses</label>
         <TextInput
           variant='textarea'
@@ -2410,9 +2510,14 @@ function App () {
           <PublicKeyToAddress />
         </section>
       </Fieldset>
-      <Fieldset legend='Batch Balance Checker'>
+      <Fieldset legend='Batch ETH Balance Checker'>
         <section>
-          <BatchBalanceChecker provider={rpcProvider} />
+          <BatchEthBalanceChecker provider={rpcProvider} />
+        </section>
+      </Fieldset>
+      <Fieldset legend='Batch Token Balance Checker'>
+        <section>
+          <BatchTokenBalanceChecker provider={rpcProvider} />
         </section>
       </Fieldset>
       <Fieldset legend='Clear'>
