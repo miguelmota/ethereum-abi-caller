@@ -2632,6 +2632,30 @@ function App () {
           <ZkSyncBalanceChecker />
         </section>
       </Fieldset>
+      <Fieldset legend='Keystore'>
+        <section>
+          <div>See:</div>
+          <a
+            href='https://lab.miguelmota.com/ethereum-keystore'
+            target='_blank'
+            rel='noopener noreferrer'
+          >
+            https://lab.miguelmota.com/ethereum-keystore
+          </a>
+        </section>
+      </Fieldset>
+      <Fieldset legend='HD Wallet'>
+        <section>
+          <div>See:</div>
+          <a
+            href='https://lab.miguelmota.com/ethereum-hdwallet'
+            target='_blank'
+            rel='noopener noreferrer'
+          >
+            https://lab.miguelmota.com/ethereum-hdwallet
+          </a>
+        </section>
+      </Fieldset>
       <Fieldset legend='Clear'>
         <section>
           <ClearLocalStorage />
