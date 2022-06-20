@@ -1061,18 +1061,36 @@ function GetNonce (props: any) {
   useEffect(() => {
     localStorage.setItem('getNonceAddress', address || '')
   }, [address])
+  const [blockTag, setBlockTag] = useState<string>(() => {
+    try {
+      return localStorage.getItem('getTransactionCountBlockTag') || 'pending'
+    } catch (err) {}
+    return 'pending'
+  })
+  useEffect(() => {
+    localStorage.setItem('getTransactionCountBlockTag', blockTag || 'pending')
+  }, [blockTag])
   const handleAddressChange = (value: string) => {
     setAddress(value)
   }
   const getNonce = async () => {
-    setNonce(null)
-    const _nonce = await provider.getTransactionCount(address, 'pending')
-    setNonce(Number(_nonce.toString()))
+    try {
+      setNonce(null)
+      const _nonce = await provider.getTransactionCount(address, blockTag)
+      setNonce(Number(_nonce.toString()))
+    } catch (err) {
+      alert(err.message)
+    }
   }
   const handleSubmit = (event: any) => {
     event.preventDefault()
     getNonce()
   }
+  const updateBlockTag = (event: any) => {
+    const { checked } = event.target
+    setBlockTag(checked ? 'pending' : 'latest')
+  }
+  const checked = blockTag === 'pending'
   return (
     <div>
       <form onSubmit={handleSubmit}>
@@ -1082,6 +1100,10 @@ function GetNonce (props: any) {
           onChange={handleAddressChange}
           placeholder='0x'
         />
+        <label>
+          <input type='checkbox' checked={checked} onChange={updateBlockTag} />
+          pending
+        </label>
         <div style={{ marginTop: '0.5rem' }}>
           <button type='submit'>get nonce</button>
         </div>
