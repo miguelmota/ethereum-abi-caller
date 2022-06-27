@@ -1119,6 +1119,104 @@ function GetNonce (props: any) {
   )
 }
 
+function EnsResolver (props: any) {
+  const { provider } = props
+  const [loading, setLoading] = useState<boolean>(false)
+  const [value, setValue] = useState<string>(
+    localStorage.getItem('ensResolver' || '') || ''
+  )
+  const [result, setResult] = useState<string | null>(null)
+  useEffect(() => {
+    localStorage.setItem('ensResolver', value || '')
+  }, [value])
+  const handleValueChange = (_value: string) => {
+    setValue(_value)
+  }
+  const encode = async () => {
+    try {
+      setResult(null)
+      setLoading(true)
+      const resolved = await provider.resolveName(value)
+      setResult(resolved)
+    } catch (err) {
+      alert(err.message)
+    }
+    setLoading(false)
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    encode()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>ENS name</label>
+        <TextInput
+          value={value}
+          onChange={handleValueChange}
+          placeholder='vitalik.eth'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>resolve</button>
+        </div>
+      </form>
+      <div style={{ marginTop: '1rem' }}>
+        {loading && <span>Loading...</span>}
+        {result}
+      </div>
+    </div>
+  )
+}
+
+function EnsReverseResolver (props: any) {
+  const { provider } = props
+  const [loading, setLoading] = useState<boolean>(false)
+  const [value, setValue] = useState<string>(
+    localStorage.getItem('ensReverseResolver' || '') || ''
+  )
+  const [result, setResult] = useState<string | null>(null)
+  useEffect(() => {
+    localStorage.setItem('ensReverseResolver', value || '')
+  }, [value])
+  const handleValueChange = (_value: string) => {
+    setValue(_value)
+  }
+  const encode = async () => {
+    try {
+      setResult(null)
+      setLoading(true)
+      const resolved = await provider.lookupAddress(value)
+      setResult(resolved)
+    } catch (err) {
+      alert(err.message)
+    }
+    setLoading(false)
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    encode()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>Address</label>
+        <TextInput
+          value={value}
+          onChange={handleValueChange}
+          placeholder='0x123...'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>resolve</button>
+        </div>
+      </form>
+      <div style={{ marginTop: '1rem' }}>
+        {loading && <span>Loading...</span>}
+        {result}
+      </div>
+    </div>
+  )
+}
+
 function EnsAvatar (props: any) {
   const { provider } = props
   const [loading, setLoading] = useState<boolean>(false)
@@ -1960,7 +2058,7 @@ function BatchTokenBalanceChecker (props: any) {
   )
 }
 
-function ZkSyncBalanceChecker (props: any) {
+function BatchZkSyncBalanceChecker (props: any) {
   const [value, setValue] = useState<string>(
     localStorage.getItem('batchZkSyncBalanceCheckerValue' || '') || ''
   )
@@ -2026,6 +2124,67 @@ function ZkSyncBalanceChecker (props: any) {
         />
         <div style={{ marginTop: '0.5rem' }}>
           <button type='submit'>get balances</button>
+        </div>
+      </form>
+      <div>
+        <pre>{result.join('\n')}</pre>
+      </div>
+    </div>
+  )
+}
+
+function BatchEnsReverseResolverChecker (props: any) {
+  const { provider } = props
+  const [value, setValue] = useState<string>(
+    localStorage.getItem('batchEnsReverseResolverChecker' || '') || ''
+  )
+  const [result, setResult] = useState<string[]>([])
+  useEffect(() => {
+    localStorage.setItem('batchEnsReverseResolverChecker', value || '')
+  }, [value])
+  const handleValueChange = (_value: string) => {
+    setValue(_value)
+  }
+  const update = async () => {
+    try {
+      setResult([])
+      if (!value) {
+        return
+      }
+      const addresses = value
+        .trim()
+        .split('\n')
+        .map((addr: string) => {
+          return addr.trim()
+        })
+      const _result: string[] = []
+      for (const address of addresses) {
+        const resolved = await provider.lookupAddress(address)
+        const output = `${address}=${resolved}`
+        _result.push(output)
+        setResult([..._result])
+      }
+      setResult([..._result])
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+  const handleSubmit = (event: any) => {
+    event.preventDefault()
+    update()
+  }
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <label>List of addresses</label>
+        <TextInput
+          variant='textarea'
+          value={value}
+          onChange={handleValueChange}
+          placeholder='0x...'
+        />
+        <div style={{ marginTop: '0.5rem' }}>
+          <button type='submit'>resolve</button>
         </div>
       </form>
       <div>
@@ -2562,6 +2721,16 @@ function App () {
           <GetNonce provider={rpcProvider} />
         </section>
       </Fieldset>
+      <Fieldset legend='ENS resolver'>
+        <section>
+          <EnsResolver provider={rpcProvider} />
+        </section>
+      </Fieldset>
+      <Fieldset legend='ENS reverse resolver'>
+        <section>
+          <EnsReverseResolver provider={rpcProvider} />
+        </section>
+      </Fieldset>
       <Fieldset legend='ENS avatar'>
         <section>
           <EnsAvatar provider={rpcProvider} />
@@ -2627,9 +2796,14 @@ function App () {
           <BatchTokenBalanceChecker provider={rpcProvider} />
         </section>
       </Fieldset>
-      <Fieldset legend='ZkSync Balance Checker'>
+      <Fieldset legend='Batch ZkSync Balance Checker'>
         <section>
-          <ZkSyncBalanceChecker />
+          <BatchZkSyncBalanceChecker />
+        </section>
+      </Fieldset>
+      <Fieldset legend='Batch ENS resolver checker'>
+        <section>
+          <BatchEnsReverseResolverChecker provider={rpcProvider} />
         </section>
       </Fieldset>
       <Fieldset legend='Keystore'>
