@@ -1,6 +1,6 @@
 # Ethereum ABI caller
 
-> Debugging tool
+> ABI method caller tool
 
 ## Demo
 
